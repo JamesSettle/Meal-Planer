@@ -66,6 +66,30 @@ One doc = 1 read/write per change, atomic updates (e.g. "New week" rewrites seve
 
 ## Open questions for you
 
-1. **Region:** OK with EU (`eur3`)? Lower latency than US for you both, and keeps data in-region.
-2. **Household ID:** I'll generate a random opaque string (e.g. `hh-7k4p9q2r`). Or do you want a memorable one?
-3. **Existing data:** want me to seed the household with whatever's currently in your laptop's localStorage, or start blank and just hit "New week"?
+1. **Region:** OK with EU (`eur3`)? Lower latency than US for you both, and keeps data in-region. → **resolved: europe-west2**
+2. **Household ID:** I'll generate a random opaque string (e.g. `hh-7k4p9q2r`). Or do you want a memorable one? → **resolved: `hh-jw-meal-7x4k2m`**
+3. **Existing data:** want me to seed the household with whatever's currently in your laptop's localStorage, or start blank and just hit "New week"? → **resolved: seed from localStorage**
+
+## Review
+
+Shipped on `main` in commit `77573fd`. Confirmed working end-to-end: laptop and phone show the same plan, shopping ticks sync within ~1s, no console errors.
+
+**What changed:**
+- `index.html` script tag converted to ES module so we can use Firebase modular SDK from CDN — no build step.
+- Firebase init + auth + Firestore wiring at top of script (~40 lines).
+- All `save()`/`load()` localStorage calls replaced with three helpers: `pushMerge` (granular field updates), `pushReplace` (full-doc atomic swap, used by "New week"), `pushUpdate` (used by reset).
+- Shopping ticks use `setDoc({merge: true})` with `deleteField()` sentinel for unticks, so concurrent ticks from both devices merge cleanly without a last-write-wins race.
+- Single `onSnapshot` listener on `households/{id}` re-renders all four tabs on any change.
+- `persistentLocalCache` enabled so the app works in supermarkets with patchy signal.
+- One-shot localStorage → Firestore migration on first load.
+- Removed iOS-specific "storage off" warning, replaced with a generic "couldn't sync" warning shown only on auth/listener errors.
+
+**Firebase setup the user did:** created project, added web app, enabled Firestore (`europe-west2`), enabled Anonymous Auth, published security rules locking `households/{id}` to authed users, added `jamessettle.github.io` to authorized domains.
+
+**Not done (out of scope, log here so it doesn't get lost):**
+- Per-user identity (no "ticked by Jess" labels)
+- Multiple households
+- Push notifications
+- Cloud Functions / scheduled cleanup
+- Build step
+

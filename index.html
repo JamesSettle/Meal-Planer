@@ -58,6 +58,11 @@ header p{font-size:11px;color:rgba(255,255,255,0.6);margin-top:1px;}
 .day-card{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:12px 14px;margin-bottom:8px;display:flex;align-items:center;gap:10px;}
 .day-card.done{background:var(--done-bg);border-color:#C8DFC4;}
 .day-card.today{border-color:var(--accent);border-width:2px;background:#F7FBF6;}
+.day-card.skipped{background:#F5F2EC;border-style:dashed;}
+.day-card.skipped .day-meal{color:var(--muted);text-decoration:line-through;font-style:italic;}
+.day-card.pinned{border-color:#F0C84A;background:#FFFCF2;}
+.day-action.pinned-btn{background:#F0C84A;border-color:#F0C84A;color:var(--accent-dark);}
+.pin-badge{font-size:11px;color:#B8860B;}
 .day-label{font-size:10px;font-weight:700;color:var(--muted);min-width:34px;text-transform:uppercase;letter-spacing:0.05em;}
 .day-card.today .day-label{color:var(--accent);}
 .day-meal{font-size:14px;font-weight:500;color:var(--text);flex:1;line-height:1.3;}
@@ -95,6 +100,14 @@ header p{font-size:11px;color:rgba(255,255,255,0.6);margin-top:1px;}
 .shop-row.checked .shop-item-name{color:var(--done);text-decoration:line-through;}
 .shop-row.checked .shop-item-note{color:var(--done);}
 .shop-empty{padding:28px 16px;text-align:center;color:var(--muted);font-size:13px;}
+.shop-extra-add{display:flex;gap:8px;padding:10px 12px;border-bottom:1px solid var(--border);background:#FAF8F3;}
+.shop-extra-add input{flex:1;border:1px solid var(--border);border-radius:8px;padding:9px 11px;font-family:'DM Sans',sans-serif;font-size:13px;background:#fff;color:var(--text);}
+.shop-extra-add input:focus{outline:none;border-color:var(--accent);}
+.extra-add-btn{background:var(--accent);color:#fff;border:none;border-radius:8px;padding:0 14px;font-family:'DM Sans',sans-serif;font-size:12px;font-weight:600;cursor:pointer;-webkit-appearance:none;}
+.extra-add-btn:active{background:var(--accent-dark);}
+.shop-extra-empty{padding:14px 14px;color:var(--muted);font-size:12px;font-style:italic;}
+.extra-del-btn{background:none;border:none;color:var(--muted);font-size:18px;line-height:1;padding:4px 10px;cursor:pointer;font-family:'DM Sans',sans-serif;flex-shrink:0;}
+.extra-del-btn:active{color:#B33;}
 
 .tag-sm{font-size:9px;padding:2px 7px;border-radius:20px;white-space:nowrap;font-weight:600;text-transform:uppercase;letter-spacing:0.03em;}
 .t-chicken{background:#E6F1FB;color:#0C447C;}.t-beef{background:#FAECE7;color:#712B13;}.t-pork{background:#FAEEDA;color:#633806;}.t-lamb{background:#FBEAF0;color:#72243E;}.t-fish{background:#E1F5EE;color:#085041;}.t-veg{background:#EAF3DE;color:#27500A;}.t-turkey{background:#F5EEF8;color:#6C3483;}
@@ -571,7 +584,8 @@ var SECS=[
 ];
 
 // State is now Firestore-backed. Local S is a cache populated by the snapshot listener.
-var S={week:[],recent:{},weeknum:1,shopChecked:{}};
+// extras: map of {randomId: {name, checked}} for free-text shopping items not tied to a meal.
+var S={week:[],recent:{},weeknum:1,shopChecked:{},extras:{}};
 var firstSnapshot=false;
 var swapIdx=-1;
 
@@ -685,46 +699,130 @@ function renderPlan(){
   document.getElementById("weekLabel").textContent="Week "+S.weeknum;
   var todayIdx=getTodayIndex();
   var html='<div class="days">';
-  var anyDone=S.week.some(function(m){return m.done&&!m.skipped;});
-  var anyTodo=S.week.some(function(m){return !m.done&&!m.skipped;});
+  var anyDone=S.week.some(function(m){return m&&m.done&&!m.skipped;});
+  var anyTodo=S.week.some(function(m){return m&&!m.done&&!m.skipped;});
+  var anySkipped=S.week.some(function(m){return m&&m.skipped;});
 
   if(anyDone){
     html+='<div class="cluster-label">Done this week ✓</div>';
     S.week.forEach(function(m,i){
-      if(!m.done||m.skipped)return;
+      if(!m||!m.done||m.skipped)return;
       html+='<div class="day-card done"><span class="day-label">'+DAYS[i]+'</span><span class="day-meal">'+m.name+'</span><span class="done-badge">done</span></div>';
     });
   }
   if(anyTodo){
     html+='<div class="cluster-label" style="margin-top:12px;">Still to come</div>';
     S.week.forEach(function(m,i){
-      if(m.done||m.skipped)return;
+      if(!m||m.done||m.skipped)return;
       var isToday=i===todayIdx;
-      html+='<div class="day-card'+(isToday?' today':'')+'"><span class="day-label">'+DAYS[i]+'</span><span class="day-meal">'+m.name+'</span>';
+      html+='<div class="day-card'+(isToday?' today':'')+(m.pinned?' pinned':'')+'"><span class="day-label">'+DAYS[i]+'</span><span class="day-meal">'+m.name+'</span>';
       if(isToday)html+='<span class="today-badge">today</span>';
+      else if(m.pinned)html+='<span class="pin-badge" title="Stays put on New week">📌</span>';
       else html+='<span class="cluster-tag">'+m.protein+'</span>';
-      html+='<button class="day-action done-btn" onclick="markDone('+i+')">✓</button>';
-      html+='<button class="day-action" onclick="openSwap('+i+')">swap</button>';
+      html+='<button class="day-action done-btn" onclick="markDone('+i+')" title="Cooked it">✓</button>';
+      html+='<button class="day-action" onclick="openSwap('+i+')" title="Swap meal">swap</button>';
+      html+='<button class="day-action" onclick="skipMeal('+i+')" title="Eating out / leftovers">skip</button>';
+      html+='<button class="day-action'+(m.pinned?' pinned-btn':'')+'" onclick="togglePin('+i+')" title="Keep on New week">'+(m.pinned?'📌':'pin')+'</button>';
       html+='</div>';
     });
   }
-  if(!anyDone&&!anyTodo){
+  if(anySkipped){
+    html+='<div class="cluster-label" style="margin-top:12px;">Skipped</div>';
+    S.week.forEach(function(m,i){
+      if(!m||!m.skipped)return;
+      html+='<div class="day-card skipped"><span class="day-label">'+DAYS[i]+'</span><span class="day-meal">'+m.name+'</span>';
+      html+='<button class="day-action" onclick="unskipMeal('+i+')" title="Put it back">undo</button>';
+      html+='</div>';
+    });
+  }
+  if(!anyDone&&!anyTodo&&!anySkipped){
     html+='<div class="empty-state">No meals this week. Tap "New week" at the top to generate.</div>';
   }
-  html+='</div><div class="info-bar" style="margin-top:14px;"><p><strong>Tip:</strong> Tap ✓ when you\'ve cooked a meal. Tap swap to change. "New week" up top when ready to move on.</p></div>';
+  html+='</div><div class="info-bar" style="margin-top:14px;"><p><strong>Tip:</strong> Tap ✓ when cooked. <strong>swap</strong> to change. <strong>skip</strong> if eating out (drops it from the shopping list). <strong>pin</strong> to keep it on New week.</p></div>';
   document.getElementById("planContent").innerHTML=html;
 }
 
 function markDone(idx){
   S.week[idx].done=true;
+  S.week[idx].skipped=false;
   renderAll();
   pushMerge({week:S.week});
+}
+function skipMeal(idx){
+  S.week[idx].skipped=true;
+  S.week[idx].done=false;
+  renderAll();
+  pushMerge({week:S.week});
+}
+function unskipMeal(idx){
+  S.week[idx].skipped=false;
+  renderAll();
+  pushMerge({week:S.week});
+}
+function togglePin(idx){
+  S.week[idx].pinned=!S.week[idx].pinned;
+  renderAll();
+  pushMerge({week:S.week});
+}
+
+// Parse a quantity string like "500g", "1.2kg", "2 tins", "3 cloves" into {n, unit}.
+// Returns null if it can't be summed (e.g. "splash", "to serve", "small bunch", "2-3").
+function parseQty(q){
+  // require either a bare number, or a number followed by whitespace and a letter-led unit.
+  var m=String(q).match(/^(\d+(?:\.\d+)?)(?:\s*([a-zA-Z][a-zA-Z\s]*))?$/);
+  if(!m)return null;
+  var n=parseFloat(m[1]);
+  if(isNaN(n))return null;
+  var unit=(m[2]||'').trim().toLowerCase().replace(/s$/,'');
+  return{n:n,unit:unit};
+}
+
+// Units that don't pluralise — "4 large" not "4 larges", "3 tsp" not "3 tsps".
+var NO_PLURAL_UNITS=['large','medium','small','xl','extra large','tsp','tbsp','oz','lb','pt','cm','mm'];
+
+function unitClass(unit){
+  if(unit==='g'||unit==='kg')return'weight';
+  if(unit==='ml'||unit==='l')return'volume';
+  return'count:'+unit;
+}
+
+// Combine a list of qty strings into a tidy summed display.
+// Falls back to unique-concat when any input can't be parsed.
+function mergeQtys(qtys){
+  var parsed=qtys.map(parseQty);
+  if(parsed.some(function(p){return !p;})){
+    var u=[];qtys.forEach(function(q){if(u.indexOf(q)===-1)u.push(q);});
+    return u.join(' + ');
+  }
+  var groups={};
+  parsed.forEach(function(p){
+    var c=unitClass(p.unit);
+    if(!groups[c])groups[c]=[];
+    groups[c].push(p);
+  });
+  var parts=[];
+  Object.keys(groups).forEach(function(c){
+    var ps=groups[c];
+    if(c==='weight'){
+      var grams=ps.reduce(function(a,p){return a+(p.unit==='kg'?p.n*1000:p.n);},0);
+      parts.push(grams>=1000?(+(grams/1000).toFixed(2))+'kg':grams+'g');
+    } else if(c==='volume'){
+      var ml=ps.reduce(function(a,p){return a+(p.unit==='l'?p.n*1000:p.n);},0);
+      parts.push(ml>=1000?(+(ml/1000).toFixed(2))+'L':ml+'ml');
+    } else {
+      var n=ps.reduce(function(a,p){return a+p.n;},0);
+      var unit=ps[0].unit;
+      var label=unit?(' '+(n!==1&&NO_PLURAL_UNITS.indexOf(unit)<0?unit+'s':unit)):'';
+      parts.push(n+label);
+    }
+  });
+  return parts.join(' + ');
 }
 
 function getShoppingList(){
   var needed={};
   S.week.forEach(function(m,i){
-    if(m.skipped||m.done)return;
+    if(!m||m.skipped||m.done)return;
     var ings=getMealIngredients(m.name);
     ings.forEach(function(ing){
       var key=ing.name.toLowerCase();
@@ -737,13 +835,11 @@ function getShoppingList(){
   Object.values(needed).forEach(function(item){
     var c=item.cat||"pantry";
     if(!byCat[c])byCat[c]=[];
-    var uniqQtys=[];
-    item.qtys.forEach(function(q){if(uniqQtys.indexOf(q)===-1)uniqQtys.push(q);});
     var uniqDays=[];
     item.mealDays.forEach(function(d){if(uniqDays.indexOf(d)===-1)uniqDays.push(d);});
     byCat[c].push({
       name:item.name,
-      qty:uniqQtys.join(' + '),
+      qty:mergeQtys(item.qtys),
       days:uniqDays.join(', ')
     });
   });
@@ -756,6 +852,8 @@ function renderShop(){
   Object.values(byCat).forEach(function(items){
     items.forEach(function(it){totalCount++;if(S.shopChecked[it.name.toLowerCase()])checkedCount++;});
   });
+  var extraIds=Object.keys(S.extras||{});
+  extraIds.forEach(function(id){totalCount++;if(S.extras[id].checked)checkedCount++;});
   var pct=totalCount?Math.round(checkedCount/totalCount*100):0;
 
   var html='<div class="shop-header"><div class="shop-progress-wrap">';
@@ -764,8 +862,26 @@ function renderShop(){
   html+='<button class="shop-reset" onclick="resetShop()">Reset ticks</button>';
   html+='</div></div>';
 
-  if(totalCount===0){
-    html+='<div class="shop-empty">All meals this week are done. Time for a new week ↻</div>';
+  // Always show the extras input + list, even when no meals are planned.
+  html+='<div class="shop-section"><div class="shop-section-header">Other</div><div class="shop-section-body">';
+  html+='<div class="shop-extra-add"><input id="extraInput" type="text" placeholder="Add anything else (e.g. milk, bin bags)" autocomplete="off" onkeydown="if(event.key===\'Enter\'){event.preventDefault();addExtra();}"><button class="extra-add-btn" onclick="addExtra()">Add</button></div>';
+  if(!extraIds.length){
+    html+='<div class="shop-extra-empty">Anything that\'s not in a meal — add it here.</div>';
+  } else {
+    extraIds.sort(function(a,b){return (S.extras[a].name||'').localeCompare(S.extras[b].name||'');});
+    extraIds.forEach(function(id){
+      var ex=S.extras[id];
+      html+='<div class="shop-row'+(ex.checked?' checked':'')+'" data-extra-id="'+id+'">';
+      html+='<div class="shop-box" onclick="toggleExtra(\''+id+'\')"><svg class="shop-tick" viewBox="0 0 14 14" fill="none"><polyline points="2,7 5.5,11 12,3" stroke="white" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg></div>';
+      html+='<div class="shop-item-body" onclick="toggleExtra(\''+id+'\')"><div class="shop-item-name">'+escapeHtml(ex.name||'')+'</div></div>';
+      html+='<button class="extra-del-btn" onclick="removeExtra(\''+id+'\')" title="Remove">×</button>';
+      html+='</div>';
+    });
+  }
+  html+='</div></div>';
+
+  if(totalCount-extraIds.length===0){
+    html+='<div class="shop-empty">No meal ingredients this week. Generate a new week ↻</div>';
   } else {
     CATS.forEach(function(cat){
       var items=byCat[cat.key];
@@ -783,6 +899,34 @@ function renderShop(){
     });
   }
   document.getElementById("shopContent").innerHTML=html;
+}
+
+function escapeHtml(s){return String(s).replace(/[&<>"']/g,function(c){return({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"})[c];});}
+
+function addExtra(){
+  var inp=document.getElementById("extraInput");
+  if(!inp)return;
+  var name=(inp.value||'').trim();
+  if(!name)return;
+  var id='x'+Date.now().toString(36)+Math.random().toString(36).slice(2,6);
+  S.extras[id]={name:name,checked:false};
+  inp.value='';
+  renderShop();
+  pushMerge({extras:{[id]:{name:name,checked:false}}});
+}
+
+function toggleExtra(id){
+  var ex=S.extras[id];
+  if(!ex)return;
+  ex.checked=!ex.checked;
+  renderShop();
+  pushMerge({extras:{[id]:{name:ex.name,checked:ex.checked}}});
+}
+
+function removeExtra(id){
+  delete S.extras[id];
+  renderShop();
+  pushMerge({extras:{[id]:deleteField()}});
 }
 
 function toggleShop(el,name){
@@ -810,16 +954,30 @@ function toggleShop(el,name){
 function resetShop(){
   if(!confirm('Reset all ticks?'))return;
   S.shopChecked={};
+  Object.keys(S.extras||{}).forEach(function(id){if(S.extras[id])S.extras[id].checked=false;});
   renderShop();
-  pushUpdate({shopChecked:{}});
+  pushUpdate({shopChecked:{},extras:S.extras||{}});
 }
 
 function generateWeek(){
+  // Preserve pinned slots — they keep their day index across regenerations.
+  var pinnedAt={};
+  S.week.forEach(function(m,i){if(m&&m.pinned)pinnedAt[i]=m;});
+  var pinnedNames={};
+  Object.values(pinnedAt).forEach(function(m){pinnedNames[m.name]=true;});
+  var slotsNeeded=7-Object.keys(pinnedAt).length;
+
   var cutoff=Date.now()-(21*24*60*60*1000);
-  var avail=MEALS.filter(function(m){var t=S.recent[m.name];return !t||t<cutoff;});
-  if(avail.length<7){
-    Object.entries(S.recent).sort(function(a,b){return a[1]-b[1];}).slice(0,7-avail.length).forEach(function(e){delete S.recent[e[0]];});
-    avail=MEALS.filter(function(m){var t=S.recent[m.name];return !t||t<cutoff;});
+  var avail=MEALS.filter(function(m){
+    if(pinnedNames[m.name])return false;
+    var t=S.recent[m.name];return !t||t<cutoff;
+  });
+  if(avail.length<slotsNeeded){
+    Object.entries(S.recent).sort(function(a,b){return a[1]-b[1];}).slice(0,slotsNeeded-avail.length).forEach(function(e){delete S.recent[e[0]];});
+    avail=MEALS.filter(function(m){
+      if(pinnedNames[m.name])return false;
+      var t=S.recent[m.name];return !t||t<cutoff;
+    });
   }
   var pools={chicken:[],beef:[],pork:[],other:[]};
   avail.forEach(function(m){
@@ -829,17 +987,29 @@ function generateWeek(){
     else pools.other.push(m);
   });
   [pools.chicken,pools.beef,pools.pork,pools.other].forEach(shuffle);
-  var plan=[];
-  [{p:pools.chicken,n:3},{p:pools.beef,n:2},{p:pools.pork,n:1},{p:pools.other.concat(pools.chicken.slice(3)).concat(pools.beef.slice(2)),n:1}].forEach(function(t){
-    for(var i=0;i<t.n&&t.p.length;i++)plan.push(t.p.shift());
-  });
-  var rest=avail.filter(function(m){return !plan.includes(m);});shuffle(rest);
-  while(plan.length<7&&rest.length)plan.push(rest.shift());
-  plan=plan.slice(0,7);
+  // Adjust quotas proportionally to slotsNeeded.
+  var quotas=slotsNeeded>=7
+    ?[{p:pools.chicken,n:3},{p:pools.beef,n:2},{p:pools.pork,n:1},{p:pools.other.concat(pools.chicken.slice(3)).concat(pools.beef.slice(2)),n:1}]
+    :[{p:pools.chicken,n:Math.min(3,Math.ceil(slotsNeeded*3/7))},{p:pools.beef,n:Math.min(2,Math.ceil(slotsNeeded*2/7))},{p:pools.pork,n:Math.min(1,Math.ceil(slotsNeeded/7))},{p:pools.other,n:1}];
+  var picks=[];
+  quotas.forEach(function(t){for(var i=0;i<t.n&&t.p.length&&picks.length<slotsNeeded;i++)picks.push(t.p.shift());});
+  var rest=avail.filter(function(m){return !picks.includes(m);});shuffle(rest);
+  while(picks.length<slotsNeeded&&rest.length)picks.push(rest.shift());
+  picks=picks.slice(0,slotsNeeded);
   var ord={chicken:0,beef:1,pork:2,lamb:3,turkey:4,fish:5,veg:6};
-  plan.sort(function(a,b){return(ord[a.protein]||6)-(ord[b.protein]||6);});
-  var wp=plan.map(function(m){return{name:m.name,protein:m.protein,done:false};});
-  wp.forEach(function(m){S.recent[m.name]=Date.now();});
+  picks.sort(function(a,b){return(ord[a.protein]||6)-(ord[b.protein]||6);});
+  var pickQueue=picks.map(function(m){return{name:m.name,protein:m.protein,done:false};});
+
+  // Build the final 7-day week: pinned meals stay put, picks fill the gaps.
+  var wp=[];
+  for(var i=0;i<7;i++){
+    if(pinnedAt[i]){
+      wp.push({name:pinnedAt[i].name,protein:pinnedAt[i].protein,done:false,pinned:true});
+    } else {
+      wp.push(pickQueue.shift());
+    }
+  }
+  wp.forEach(function(m){if(m)S.recent[m.name]=Date.now();});
   S.weeknum++;S.week=wp;
   S.shopChecked={};
   renderAll();switchTab("tonight");
@@ -916,12 +1086,18 @@ function renderAll(){
 window.generateWeek=generateWeek;
 window.switchTab=switchTab;
 window.markDone=markDone;
+window.skipMeal=skipMeal;
+window.unskipMeal=unskipMeal;
+window.togglePin=togglePin;
 window.openSwap=openSwap;
 window.closeSwap=closeSwap;
 window.closeSwapDirect=closeSwapDirect;
 window.doSwap=doSwap;
 window.toggleShop=toggleShop;
 window.resetShop=resetShop;
+window.addExtra=addExtra;
+window.toggleExtra=toggleExtra;
+window.removeExtra=removeExtra;
 
 // initial paint before snapshot arrives
 renderConnecting();
@@ -935,6 +1111,7 @@ async function attachListener(){
       S.recent=d.recent||{};
       S.weeknum=d.weeknum||1;
       S.shopChecked=d.shopChecked||{};
+      S.extras=d.extras||{};
       firstSnapshot=true;
       clearConnWarn();
       renderAll();
