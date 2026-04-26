@@ -151,7 +151,46 @@ header p{font-size:11px;color:rgba(255,255,255,0.6);margin-top:1px;}
   </div>
 </div>
 
-<script>
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/12.12.1/firebase-app.js";
+import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.12.1/firebase-auth.js";
+import {
+  initializeFirestore, persistentLocalCache, persistentMultipleTabManager,
+  doc, setDoc, updateDoc, onSnapshot, serverTimestamp, deleteField
+} from "https://www.gstatic.com/firebasejs/12.12.1/firebase-firestore.js";
+
+// ---- Firebase config (safe to commit; security is via auth + rules) ----
+var firebaseConfig={
+  apiKey:"AIzaSyDD_RvtkH8ytXXo9KrhA29dy8vwTGV0OHc",
+  authDomain:"meal-planner-d312d.firebaseapp.com",
+  projectId:"meal-planner-d312d",
+  storageBucket:"meal-planner-d312d.firebasestorage.app",
+  messagingSenderId:"873428175997",
+  appId:"1:873428175997:web:9eb0091b871dfbaa9cf514"
+};
+var HOUSEHOLD_ID="hh-jw-meal-7x4k2m"; // shared between all devices in the household
+
+var fbApp=initializeApp(firebaseConfig);
+var fbAuth=getAuth(fbApp);
+var fbDb=initializeFirestore(fbApp,{
+  localCache:persistentLocalCache({tabManager:persistentMultipleTabManager()})
+});
+var householdRef=doc(fbDb,"households",HOUSEHOLD_ID);
+
+// ---- write helpers ----
+async function pushMerge(fields){
+  try{await setDoc(householdRef,Object.assign({},fields,{updatedAt:serverTimestamp()}),{merge:true});}
+  catch(e){showConnWarn("Couldn't sync that change. "+(e.message||e));}
+}
+async function pushReplace(fields){
+  try{await setDoc(householdRef,Object.assign({},fields,{updatedAt:serverTimestamp()}));}
+  catch(e){showConnWarn("Couldn't sync that change. "+(e.message||e));}
+}
+async function pushUpdate(fields){
+  try{await updateDoc(householdRef,Object.assign({},fields,{updatedAt:serverTimestamp()}));}
+  catch(e){await pushMerge(fields);}
+}
+
 var MEALS=[
   {name:"Lasagne",cat:"British",protein:"beef",ing:[
     {name:"Beef mince",qty:"500g",cat:"meat"},{name:"Pancetta or lardons",qty:"100g",cat:"meat"},
@@ -531,55 +570,21 @@ var SECS=[
   {key:"Lighter",label:"Lighter Options"},{key:"Other",label:"Other"},
 ];
 
-var now=Date.now();
-var WEEK1=[]; // empty default — no zombie "lasagne week" anymore
-var WEEK1_RECENT={};
-
-// Test if localStorage actually persists. Some iOS contexts (Private mode,
-// in-app browsers, low-memory eviction) silently fail to save.
-var STORAGE_OK=false;
-try{
-  localStorage.setItem("mpv4_test","1");
-  STORAGE_OK=localStorage.getItem("mpv4_test")==="1";
-  localStorage.removeItem("mpv4_test");
-}catch(e){STORAGE_OK=false;}
-
-function load(k,d){try{var v=localStorage.getItem(k);return v!==null?JSON.parse(v):d;}catch(e){return d;}}
-function save(k,v){
-  try{
-    localStorage.setItem(k,JSON.stringify(v));
-    // verify it actually stuck — some iOS contexts silently fail
-    var check=localStorage.getItem(k);
-    if(check===null){
-      STORAGE_OK=false;
-      renderStorageWarning();
-    }
-  }catch(e){
-    STORAGE_OK=false;
-    if(typeof renderStorageWarning==="function")renderStorageWarning();
-  }
-}
-
-if(!localStorage.getItem("mpv4_init")){
-  // Migrate from old v3 if available
-  var oldWeek=load("mpv3_week",null);
-  var oldRecent=load("mpv3_recent",null);
-  var oldWeeknum=load("mpv3_weeknum",null);
-  save("mpv4_week",oldWeek||WEEK1);
-  save("mpv4_recent",oldRecent||WEEK1_RECENT);
-  save("mpv4_weeknum",oldWeeknum||1);
-  save("mpv4_shopchecked",{});
-  save("mpv4_init","1");
-}
-
-var S={
-  week:load("mpv4_week",WEEK1),
-  recent:load("mpv4_recent",WEEK1_RECENT),
-  weeknum:load("mpv4_weeknum",1),
-  shopChecked:load("mpv4_shopchecked",{})
-};
-
+// State is now Firestore-backed. Local S is a cache populated by the snapshot listener.
+var S={week:[],recent:{},weeknum:1,shopChecked:{}};
+var firstSnapshot=false;
 var swapIdx=-1;
+
+// Read any leftover localStorage data so we can seed Firestore on first load if it's empty.
+function readLegacyLocalStorage(){
+  function read(k,d){try{var v=localStorage.getItem(k);return v!==null?JSON.parse(v):d;}catch(e){return d;}}
+  return{
+    week:read("mpv4_week",[]),
+    recent:read("mpv4_recent",{}),
+    weeknum:read("mpv4_weeknum",1),
+    shopChecked:read("mpv4_shopchecked",{})
+  };
+}
 
 function getTodayIndex(){
   var d=new Date();
@@ -592,19 +597,17 @@ function getMealIngredients(mealName){
   return m?m.ing:[];
 }
 
-function renderStorageWarning(){
+function showConnWarn(msg){
   var existing=document.getElementById("storageWarn");
-  if(STORAGE_OK){
-    if(existing)existing.remove();
-    return;
-  }
-  if(existing)return;
+  if(existing)existing.remove();
+  if(!msg)return;
   var w=document.createElement("div");
   w.id="storageWarn";
   w.style.cssText="background:#FFE5B4;color:#8B4513;padding:10px 14px;font-size:12px;border-bottom:1px solid #F0C84A;line-height:1.4;";
-  w.innerHTML="<strong>⚠ Storage off.</strong> This browser isn't saving your progress between sessions. Open in Safari (not Chrome / in-app browser) and use Add to Home Screen, or shopping list will reset.";
+  w.innerHTML="<strong>⚠</strong> "+msg;
   document.body.insertBefore(w,document.body.firstChild);
 }
+function clearConnWarn(){showConnWarn("");}
 
 function renderTonight(){
   var idx=getTodayIndex();
@@ -714,8 +717,8 @@ function renderPlan(){
 
 function markDone(idx){
   S.week[idx].done=true;
-  save("mpv4_week",S.week);
   renderAll();
+  pushMerge({week:S.week});
 }
 
 function getShoppingList(){
@@ -784,17 +787,15 @@ function renderShop(){
 
 function toggleShop(el,name){
   var k=name.toLowerCase();
-  var isNowChecked;
   if(S.shopChecked[k]){
     delete S.shopChecked[k];
     el.classList.remove('checked');
-    isNowChecked=false;
+    pushMerge({shopChecked:{[k]:deleteField()}});
   } else {
     S.shopChecked[k]=true;
     el.classList.add('checked');
-    isNowChecked=true;
+    pushMerge({shopChecked:{[k]:true}});
   }
-  save("mpv4_shopchecked",S.shopChecked);
   // update progress bar without full re-render (keeps scroll position)
   var byCat=getShoppingList();
   var totalCount=0,checkedCount=0;
@@ -809,8 +810,8 @@ function toggleShop(el,name){
 function resetShop(){
   if(!confirm('Reset all ticks?'))return;
   S.shopChecked={};
-  save("mpv4_shopchecked",S.shopChecked);
   renderShop();
+  pushUpdate({shopChecked:{}});
 }
 
 function generateWeek(){
@@ -818,7 +819,6 @@ function generateWeek(){
   var avail=MEALS.filter(function(m){var t=S.recent[m.name];return !t||t<cutoff;});
   if(avail.length<7){
     Object.entries(S.recent).sort(function(a,b){return a[1]-b[1];}).slice(0,7-avail.length).forEach(function(e){delete S.recent[e[0]];});
-    save("mpv4_recent",S.recent);
     avail=MEALS.filter(function(m){var t=S.recent[m.name];return !t||t<cutoff;});
   }
   var pools={chicken:[],beef:[],pork:[],other:[]};
@@ -840,11 +840,10 @@ function generateWeek(){
   plan.sort(function(a,b){return(ord[a.protein]||6)-(ord[b.protein]||6);});
   var wp=plan.map(function(m){return{name:m.name,protein:m.protein,done:false};});
   wp.forEach(function(m){S.recent[m.name]=Date.now();});
-  save("mpv4_recent",S.recent);
   S.weeknum++;S.week=wp;
   S.shopChecked={};
-  save("mpv4_week",wp);save("mpv4_weeknum",S.weeknum);save("mpv4_shopchecked",S.shopChecked);
   renderAll();switchTab("tonight");
+  pushReplace({week:S.week,recent:S.recent,weeknum:S.weeknum,shopChecked:{}});
 }
 
 function openSwap(idx){
@@ -867,8 +866,8 @@ function openSwap(idx){
 function doSwap(name,protein){
   S.week[swapIdx]={name:name,protein:protein,done:false};
   S.recent[name]=Date.now();
-  save("mpv4_week",S.week);save("mpv4_recent",S.recent);
   closeSwapDirect();renderAll();
+  pushMerge({week:S.week,recent:S.recent});
 }
 
 function closeSwap(e){if(e.target===document.getElementById("swapOverlay"))closeSwapDirect();}
@@ -902,8 +901,66 @@ function switchTab(id){
 function shuffle(a){for(var i=a.length-1;i>0;i--){var j=Math.floor(Math.random()*(i+1));var t=a[i];a[i]=a[j];a[j]=t;}return a;}
 function escQ(s){return s.replace(/'/g,"\\'");}
 
-function renderAll(){renderStorageWarning();renderTonight();renderPlan();renderShop();renderMeals();}
-renderAll();
+function renderConnecting(){
+  document.getElementById("tonightContent").innerHTML='<div class="tonight-hero"><div class="tonight-inner"><div class="tonight-day">Connecting…</div><div class="tonight-meal">Loading your week</div></div></div>';
+  document.getElementById("planContent").innerHTML='';
+  document.getElementById("shopContent").innerHTML='';
+  document.getElementById("mealsContent").innerHTML='';
+}
+function renderAll(){
+  if(!firstSnapshot){renderConnecting();return;}
+  renderTonight();renderPlan();renderShop();renderMeals();
+}
+
+// expose handlers for inline onclick attributes (module scope is not global)
+window.generateWeek=generateWeek;
+window.switchTab=switchTab;
+window.markDone=markDone;
+window.openSwap=openSwap;
+window.closeSwap=closeSwap;
+window.closeSwapDirect=closeSwapDirect;
+window.doSwap=doSwap;
+window.toggleShop=toggleShop;
+window.resetShop=resetShop;
+
+// initial paint before snapshot arrives
+renderConnecting();
+
+// ---- auth + live sync ----
+async function attachListener(){
+  onSnapshot(householdRef,async function(snap){
+    if(snap.exists()){
+      var d=snap.data();
+      S.week=d.week||[];
+      S.recent=d.recent||{};
+      S.weeknum=d.weeknum||1;
+      S.shopChecked=d.shopChecked||{};
+      firstSnapshot=true;
+      clearConnWarn();
+      renderAll();
+    } else {
+      // first time on this household — seed from any leftover localStorage on this device
+      var seed=readLegacyLocalStorage();
+      try{
+        await setDoc(householdRef,{
+          week:seed.week,recent:seed.recent,weeknum:seed.weeknum,
+          shopChecked:seed.shopChecked,updatedAt:serverTimestamp()
+        });
+      }catch(e){
+        showConnWarn("Couldn't create the household doc. "+(e.message||e));
+      }
+      // listener will fire again with the seeded data
+    }
+  },function(err){
+    showConnWarn("Live sync failed. "+(err.message||err));
+  });
+}
+
+onAuthStateChanged(fbAuth,async function(user){
+  if(user){attachListener();return;}
+  try{await signInAnonymously(fbAuth);}
+  catch(e){showConnWarn("Sign-in failed. "+(e.message||e));}
+});
 </script>
 </body>
 </html>
