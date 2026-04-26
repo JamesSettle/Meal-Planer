@@ -1,0 +1,909 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Meal Planner</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=DM+Serif+Display&display=swap');
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;}
+:root{
+  --bg:#F7F5F0;--card:#fff;--accent:#2D5A27;--accent-dark:#1F3F1B;--text:#1A1A1A;--muted:#888;
+  --border:#E5E2DB;--done:#B0ADA8;--pill-bg:#E8F2E7;--pill-text:#2D5A27;
+  --recent-bg:#FFF8E8;--recent-border:#F0C84A;--done-bg:#F0F7EE;
+  --tonight-bg:#1F3F1B;--tonight-text:#F7F5F0;
+}
+body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;padding-bottom:100px;-webkit-font-smoothing:antialiased;}
+
+header{background:var(--accent);padding:20px 18px 14px;position:sticky;top:0;z-index:20;}
+header h1{font-family:'DM Serif Display',serif;font-size:22px;color:#fff;font-weight:400;letter-spacing:-0.01em;}
+header p{font-size:11px;color:rgba(255,255,255,0.6);margin-top:1px;}
+.header-row{display:flex;align-items:center;justify-content:space-between;margin-top:12px;gap:10px;}
+.gen-btn{background:#fff;color:var(--accent);font-family:'DM Sans',sans-serif;font-size:12px;font-weight:600;padding:8px 16px;border-radius:8px;border:none;cursor:pointer;-webkit-appearance:none;white-space:nowrap;}
+.gen-btn:active{background:#E8F2E7;}
+.week-label{font-size:11px;color:rgba(255,255,255,0.75);font-weight:500;}
+
+.tabs{display:flex;background:#fff;border-bottom:1px solid var(--border);position:sticky;top:79px;z-index:15;}
+.tab{flex:1;padding:13px 0;font-size:12px;font-weight:600;color:var(--muted);text-align:center;cursor:pointer;border-bottom:2px solid transparent;letter-spacing:0.02em;text-transform:uppercase;}
+.tab.active{color:var(--accent);border-bottom-color:var(--accent);}
+.panel{display:none;}.panel.active{display:block;}
+
+.tonight-hero{background:var(--tonight-bg);color:var(--tonight-text);margin:14px 14px 0;border-radius:14px;overflow:hidden;position:relative;}
+.tonight-hero::before{content:"";position:absolute;inset:0;background:radial-gradient(circle at 85% 15%,rgba(240,200,74,0.15),transparent 50%);pointer-events:none;}
+.tonight-inner{padding:22px 20px 20px;position:relative;}
+.tonight-day{font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.15em;color:rgba(247,245,240,0.6);margin-bottom:8px;}
+.tonight-meal{font-family:'DM Serif Display',serif;font-size:28px;line-height:1.15;font-weight:400;letter-spacing:-0.01em;margin-bottom:12px;}
+.tonight-tag{display:inline-block;font-size:10px;padding:3px 10px;border-radius:20px;background:rgba(247,245,240,0.15);color:var(--tonight-text);font-weight:600;text-transform:uppercase;letter-spacing:0.08em;}
+.tonight-actions{display:flex;gap:8px;margin-top:18px;}
+.tonight-btn{flex:1;background:rgba(247,245,240,0.1);color:var(--tonight-text);border:1px solid rgba(247,245,240,0.2);padding:10px;border-radius:8px;font-family:'DM Sans',sans-serif;font-size:12px;font-weight:600;cursor:pointer;-webkit-appearance:none;}
+.tonight-btn:active{background:rgba(247,245,240,0.2);}
+.tonight-btn.primary{background:#F0C84A;color:var(--accent-dark);border-color:#F0C84A;}
+.tonight-btn.primary:active{background:#E0B83A;}
+
+.tonight-ingredients{background:var(--card);margin:14px;border:1px solid var(--border);border-radius:12px;padding:14px 16px;}
+.tonight-ing-title{font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.08em;color:var(--muted);margin-bottom:10px;}
+.ing-list{font-size:13px;line-height:1.7;color:var(--text);}
+.ing-list li{list-style:none;padding:2px 0;display:flex;gap:8px;align-items:baseline;}
+.ing-list li::before{content:"•";color:var(--accent);font-weight:700;}
+
+.up-next{margin:14px;padding:14px 16px;background:var(--card);border:1px solid var(--border);border-radius:12px;}
+.up-next-title{font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.08em;color:var(--muted);margin-bottom:8px;}
+.up-next-row{display:flex;justify-content:space-between;align-items:center;padding:6px 0;font-size:13px;}
+.up-next-row + .up-next-row{border-top:1px solid var(--border);margin-top:2px;padding-top:10px;}
+.up-next-day{font-weight:600;color:var(--muted);font-size:11px;text-transform:uppercase;letter-spacing:0.05em;min-width:38px;}
+.up-next-name{flex:1;margin:0 10px;}
+
+.days{padding:14px 16px 0;}
+.cluster-label{font-size:10px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:0.08em;padding:10px 0 6px;}
+.day-card{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:12px 14px;margin-bottom:8px;display:flex;align-items:center;gap:10px;}
+.day-card.done{background:var(--done-bg);border-color:#C8DFC4;}
+.day-card.today{border-color:var(--accent);border-width:2px;background:#F7FBF6;}
+.day-label{font-size:10px;font-weight:700;color:var(--muted);min-width:34px;text-transform:uppercase;letter-spacing:0.05em;}
+.day-card.today .day-label{color:var(--accent);}
+.day-meal{font-size:14px;font-weight:500;color:var(--text);flex:1;line-height:1.3;}
+.day-card.done .day-meal{color:var(--done);text-decoration:line-through;}
+.day-action{background:none;border:1px solid var(--border);border-radius:6px;color:var(--muted);font-size:11px;padding:4px 9px;cursor:pointer;font-family:'DM Sans',sans-serif;white-space:nowrap;}
+.day-action:active{background:var(--bg);}
+.day-action.done-btn{color:var(--accent);border-color:var(--accent);}
+.done-badge{font-size:9px;padding:2px 7px;border-radius:20px;background:#C8DFC4;color:#2D5A27;white-space:nowrap;font-weight:600;text-transform:uppercase;letter-spacing:0.05em;}
+.today-badge{font-size:9px;padding:2px 7px;border-radius:20px;background:var(--accent);color:#fff;white-space:nowrap;font-weight:600;text-transform:uppercase;letter-spacing:0.05em;}
+.info-bar{margin:14px 16px 0;background:var(--card);border:1px solid var(--border);border-radius:10px;padding:12px 14px;}
+.info-bar p{font-size:12px;color:var(--muted);line-height:1.5;}
+.info-bar strong{color:var(--text);}
+
+.shop-header{padding:16px 16px 0;}
+.shop-progress-wrap{background:#fff;border:1px solid var(--border);border-radius:12px;padding:14px 16px;margin-bottom:12px;}
+.shop-progress-row{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;}
+.shop-progress-label{font-size:13px;font-weight:600;}
+.shop-progress-pct{font-size:12px;color:var(--muted);}
+.shop-progress-bar-wrap{background:var(--bg);border-radius:10px;height:6px;overflow:hidden;}
+.shop-progress-bar{height:100%;background:var(--accent);border-radius:10px;transition:width 0.3s ease;width:0%;}
+.shop-reset{margin-top:10px;font-size:11px;color:var(--muted);background:none;border:none;cursor:pointer;font-family:'DM Sans',sans-serif;text-decoration:underline;padding:0;}
+.shop-section{margin:0 16px 12px;}
+.shop-section-header{font-size:10px;font-weight:700;color:#fff;text-transform:uppercase;letter-spacing:0.08em;padding:7px 12px;border-radius:8px 8px 0 0;background:var(--accent);}
+.shop-section-body{background:var(--card);border:1px solid var(--border);border-top:none;border-radius:0 0 10px 10px;overflow:hidden;}
+.shop-row{display:flex;align-items:center;padding:12px 14px;border-bottom:1px solid var(--border);cursor:pointer;gap:12px;user-select:none;-webkit-user-select:none;}
+.shop-row:last-child{border-bottom:none;}
+.shop-row:active{background:var(--bg);}
+.shop-box{width:22px;height:22px;border:2px solid var(--border);border-radius:6px;flex-shrink:0;display:flex;align-items:center;justify-content:center;transition:all 0.15s;background:#fff;}
+.shop-row.checked .shop-box{background:var(--accent);border-color:var(--accent);}
+.shop-tick{width:12px;height:12px;display:none;}
+.shop-row.checked .shop-box .shop-tick{display:block;}
+.shop-item-body{flex:1;min-width:0;}
+.shop-item-name{font-size:14px;font-weight:500;color:var(--text);}
+.shop-item-note{font-size:11px;color:var(--muted);margin-top:2px;}
+.shop-row.checked .shop-item-name{color:var(--done);text-decoration:line-through;}
+.shop-row.checked .shop-item-note{color:var(--done);}
+.shop-empty{padding:28px 16px;text-align:center;color:var(--muted);font-size:13px;}
+
+.tag-sm{font-size:9px;padding:2px 7px;border-radius:20px;white-space:nowrap;font-weight:600;text-transform:uppercase;letter-spacing:0.03em;}
+.t-chicken{background:#E6F1FB;color:#0C447C;}.t-beef{background:#FAECE7;color:#712B13;}.t-pork{background:#FAEEDA;color:#633806;}.t-lamb{background:#FBEAF0;color:#72243E;}.t-fish{background:#E1F5EE;color:#085041;}.t-veg{background:#EAF3DE;color:#27500A;}.t-turkey{background:#F5EEF8;color:#6C3483;}
+.cluster-tag{font-size:9px;padding:2px 7px;border-radius:20px;background:var(--pill-bg);color:var(--pill-text);white-space:nowrap;font-weight:600;text-transform:uppercase;letter-spacing:0.03em;}
+.meal-section{margin:14px 16px 0;}
+.meal-section-header{font-size:10px;font-weight:700;color:#fff;text-transform:uppercase;letter-spacing:0.08em;padding:7px 12px;border-radius:8px 8px 0 0;background:var(--accent);}
+.meal-section-body{background:var(--card);border:1px solid var(--border);border-top:none;border-radius:0 0 10px 10px;overflow:hidden;}
+.meal-row{display:flex;align-items:center;padding:11px 12px;border-bottom:1px solid var(--border);gap:10px;}
+.meal-row:last-child{border-bottom:none;}
+.meal-row-name{font-size:13px;font-weight:500;color:var(--text);flex:1;}
+.meal-row.used .meal-row-name{color:var(--done);}
+
+.overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.4);z-index:50;align-items:flex-end;}
+.overlay.open{display:flex;}
+.modal{background:#fff;border-radius:16px 16px 0 0;width:100%;max-height:75vh;overflow-y:auto;padding-bottom:30px;}
+.modal-header{padding:16px 16px 10px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;}
+.modal-title{font-size:15px;font-weight:600;}
+.modal-close{background:none;border:none;font-size:20px;color:var(--muted);cursor:pointer;padding:0 4px;}
+.modal-item{display:flex;align-items:center;padding:13px 16px;border-bottom:1px solid var(--border);cursor:pointer;gap:10px;}
+.modal-item:last-child{border-bottom:none;}
+.modal-item:active{background:var(--bg);}
+.modal-item-name{font-size:14px;font-weight:500;flex:1;}
+.modal-item.used-item .modal-item-name{color:var(--done);}
+.modal-item-badge{font-size:10px;padding:2px 7px;border-radius:10px;background:#FFF8E8;color:#B8860B;border:1px solid #F0C84A;}
+</style>
+</head>
+<body>
+
+<header>
+  <h1>Meal Planner</h1>
+  <p>48 dishes · weekly plan · auto shopping list</p>
+  <div class="header-row">
+    <span class="week-label" id="weekLabel">Week 1</span>
+    <button class="gen-btn" onclick="generateWeek()">New week ↻</button>
+  </div>
+</header>
+
+<div class="tabs">
+  <div class="tab active" onclick="switchTab('tonight')">Tonight</div>
+  <div class="tab" onclick="switchTab('plan')">Week</div>
+  <div class="tab" onclick="switchTab('shop')">Shopping</div>
+  <div class="tab" onclick="switchTab('meals')">All</div>
+</div>
+
+<div class="panel active" id="panel-tonight"><div id="tonightContent"></div></div>
+<div class="panel" id="panel-plan"><div id="planContent"></div></div>
+<div class="panel" id="panel-shop"><div id="shopContent"></div></div>
+<div class="panel" id="panel-meals"><div id="mealsContent"></div></div>
+
+<div class="overlay" id="swapOverlay" onclick="closeSwap(event)">
+  <div class="modal">
+    <div class="modal-header"><span class="modal-title">Swap meal</span><button class="modal-close" onclick="closeSwapDirect()">✕</button></div>
+    <div id="swapList"></div>
+  </div>
+</div>
+
+<script>
+var MEALS=[
+  {name:"Lasagne",cat:"British",protein:"beef",ing:[
+    {name:"Beef mince",qty:"500g",cat:"meat"},{name:"Pancetta or lardons",qty:"100g",cat:"meat"},
+    {name:"Lasagne sheets",qty:"1 box",cat:"pantry"},{name:"Tinned tomatoes",qty:"2 tins",cat:"pantry"},
+    {name:"Tomato puree",qty:"1 tube",cat:"pantry"},{name:"Whole milk",qty:"500ml",cat:"dairy"},
+    {name:"Butter",qty:"50g",cat:"dairy"},{name:"Plain flour",qty:"50g",cat:"pantry"},
+    {name:"Parmesan",qty:"block",cat:"dairy"},{name:"Mozzarella",qty:"1 ball",cat:"dairy"},
+    {name:"Onion",qty:"1",cat:"produce"},{name:"Carrot",qty:"1",cat:"produce"},
+    {name:"Celery",qty:"1 stick",cat:"produce"},{name:"Garlic",qty:"3 cloves",cat:"produce"},
+    {name:"Dried oregano",qty:"pinch",cat:"herbs"},{name:"Bay leaf",qty:"1",cat:"herbs"},
+  ]},
+  {name:"Beef Goulash",cat:"British",protein:"beef",ing:[
+    {name:"Beef braising steak",qty:"800g",cat:"meat"},{name:"Onions",qty:"2 large",cat:"produce"},
+    {name:"Red peppers",qty:"2",cat:"produce"},{name:"Garlic",qty:"3 cloves",cat:"produce"},
+    {name:"Sweet paprika",qty:"3 tbsp",cat:"herbs"},{name:"Smoked paprika",qty:"1 tbsp",cat:"herbs"},
+    {name:"Caraway seeds",qty:"1 tsp",cat:"herbs"},{name:"Tinned tomatoes",qty:"1 tin",cat:"pantry"},
+    {name:"Beef stock",qty:"500ml",cat:"pantry"},{name:"Sour cream",qty:"200ml",cat:"dairy"},
+    {name:"Bay leaves",qty:"2",cat:"herbs"},{name:"Potatoes",qty:"1kg",cat:"produce"},
+  ]},
+  {name:"Beef Stroganoff",cat:"British",protein:"beef",ing:[
+    {name:"Beef fillet or sirloin",qty:"500g",cat:"meat"},{name:"Onion",qty:"1",cat:"produce"},
+    {name:"Garlic",qty:"2 cloves",cat:"produce"},{name:"Dijon mustard",qty:"2 tbsp",cat:"pantry"},
+    {name:"Double cream or creme fraiche",qty:"200ml",cat:"dairy"},{name:"Beef stock",qty:"200ml",cat:"pantry"},
+    {name:"Brandy",qty:"splash",cat:"pantry",note:"optional"},{name:"Paprika",qty:"1 tsp",cat:"herbs"},
+    {name:"Parsley",qty:"small bunch",cat:"produce"},{name:"Rice or pappardelle",qty:"400g",cat:"pantry"},
+    {name:"Butter",qty:"50g",cat:"dairy"},
+  ]},
+  {name:"Cottage Pie",cat:"British",protein:"beef",ing:[
+    {name:"Beef mince",qty:"600g",cat:"meat"},{name:"Potatoes",qty:"1.2kg",cat:"produce"},
+    {name:"Onion",qty:"1",cat:"produce"},{name:"Carrots",qty:"2",cat:"produce"},
+    {name:"Celery",qty:"2 sticks",cat:"produce"},{name:"Beef stock",qty:"400ml",cat:"pantry"},
+    {name:"Worcestershire sauce",qty:"2 tbsp",cat:"pantry"},{name:"Tomato puree",qty:"2 tbsp",cat:"pantry"},
+    {name:"Butter",qty:"50g",cat:"dairy"},{name:"Milk",qty:"100ml",cat:"dairy"},
+    {name:"Cheddar",qty:"handful grated",cat:"dairy"},{name:"Thyme",qty:"few sprigs",cat:"herbs"},
+  ]},
+  {name:"Sausage & Mash with Onion Gravy",cat:"British",protein:"pork",ing:[
+    {name:"Good sausages",qty:"6-8",cat:"meat"},{name:"Potatoes",qty:"1kg",cat:"produce"},
+    {name:"Onions",qty:"3 large",cat:"produce"},{name:"Butter",qty:"100g",cat:"dairy"},
+    {name:"Milk",qty:"100ml",cat:"dairy"},{name:"Beef stock",qty:"400ml",cat:"pantry"},
+    {name:"Red wine",qty:"splash",cat:"pantry",note:"optional"},{name:"Plain flour",qty:"1 tbsp",cat:"pantry"},
+    {name:"Wholegrain mustard",qty:"1 tsp",cat:"pantry"},{name:"Thyme",qty:"few sprigs",cat:"herbs"},
+  ]},
+  {name:"Steak & Chips",cat:"British",protein:"beef",ing:[
+    {name:"Sirloin or ribeye steaks",qty:"2-3",cat:"meat"},{name:"Potatoes",qty:"1kg Maris Piper",cat:"produce"},
+    {name:"Butter",qty:"50g",cat:"dairy"},{name:"Garlic",qty:"2 cloves",cat:"produce"},
+    {name:"Thyme",qty:"few sprigs",cat:"herbs"},{name:"Flaky salt",qty:"for finishing",cat:"herbs"},
+    {name:"Peppercorns",qty:"for sauce",cat:"herbs",note:"optional"},
+    {name:"Double cream",qty:"100ml",cat:"dairy",note:"for sauce"},
+    {name:"Side veg",qty:"green beans/asparagus",cat:"produce"},
+  ]},
+  {name:"Proper Bolognese",cat:"British",protein:"beef",ing:[
+    {name:"Beef mince",qty:"500g",cat:"meat"},{name:"Pork mince",qty:"200g",cat:"meat"},
+    {name:"Pancetta",qty:"100g",cat:"meat"},{name:"Onion",qty:"1",cat:"produce"},
+    {name:"Carrot",qty:"1",cat:"produce"},{name:"Celery",qty:"2 sticks",cat:"produce"},
+    {name:"Tinned tomatoes",qty:"1 tin",cat:"pantry"},{name:"Tomato puree",qty:"2 tbsp",cat:"pantry"},
+    {name:"Red wine",qty:"150ml",cat:"pantry"},{name:"Milk",qty:"200ml",cat:"dairy"},
+    {name:"Beef stock",qty:"300ml",cat:"pantry"},{name:"Tagliatelle or pappardelle",qty:"500g",cat:"pantry"},
+    {name:"Parmesan",qty:"block",cat:"dairy"},
+  ]},
+  {name:"French Onion Soup",cat:"British",protein:"veg",ing:[
+    {name:"Onions",qty:"1kg",cat:"produce"},{name:"Butter",qty:"50g",cat:"dairy"},
+    {name:"Beef stock",qty:"1.2L",cat:"pantry"},{name:"White wine",qty:"150ml",cat:"pantry"},
+    {name:"Baguette",qty:"1",cat:"bakery"},{name:"Gruyere",qty:"200g",cat:"dairy"},
+    {name:"Thyme",qty:"few sprigs",cat:"herbs"},{name:"Bay leaf",qty:"1",cat:"herbs"},
+  ]},
+  {name:"Chorizo & Butter Bean Stew",cat:"British",protein:"pork",ing:[
+    {name:"Cooking chorizo",qty:"300g",cat:"meat"},{name:"Butter beans",qty:"2 tins",cat:"pantry"},
+    {name:"Tinned tomatoes",qty:"1 tin",cat:"pantry"},{name:"Onion",qty:"1",cat:"produce"},
+    {name:"Red pepper",qty:"1",cat:"produce"},{name:"Garlic",qty:"3 cloves",cat:"produce"},
+    {name:"Smoked paprika",qty:"1 tsp",cat:"herbs"},{name:"Chicken stock",qty:"300ml",cat:"pantry"},
+    {name:"Parsley",qty:"small bunch",cat:"produce"},{name:"Crusty bread",qty:"loaf",cat:"bakery"},
+  ]},
+  {name:"Leek & Potato Soup",cat:"British",protein:"veg",ing:[
+    {name:"Leeks",qty:"4 large",cat:"produce"},{name:"Potatoes",qty:"500g",cat:"produce"},
+    {name:"Onion",qty:"1",cat:"produce"},{name:"Butter",qty:"50g",cat:"dairy"},
+    {name:"Chicken or veg stock",qty:"1L",cat:"pantry"},{name:"Double cream",qty:"100ml",cat:"dairy"},
+    {name:"Chives",qty:"small bunch",cat:"produce"},{name:"Crusty bread",qty:"loaf",cat:"bakery"},
+  ]},
+  {name:"Beef Roast with Trimmings",cat:"British",protein:"beef",ing:[
+    {name:"Beef topside or sirloin",qty:"1.5kg",cat:"meat"},{name:"Potatoes",qty:"1.5kg Maris Piper",cat:"produce"},
+    {name:"Carrots",qty:"500g",cat:"produce"},{name:"Parsnips",qty:"500g",cat:"produce"},
+    {name:"Broccoli or tenderstem",qty:"1 head",cat:"produce"},{name:"Plain flour",qty:"for Yorkshires",cat:"pantry"},
+    {name:"Eggs",qty:"3",cat:"dairy"},{name:"Milk",qty:"200ml",cat:"dairy"},
+    {name:"Beef dripping or oil",qty:"for roasting",cat:"pantry"},{name:"Beef stock",qty:"500ml",cat:"pantry"},
+    {name:"Horseradish",qty:"jar",cat:"pantry"},{name:"Rosemary",qty:"few sprigs",cat:"herbs"},
+  ]},
+  {name:"Marry Me Chicken",cat:"Chicken",protein:"chicken",ing:[
+    {name:"Chicken breasts",qty:"4",cat:"meat"},{name:"Sun-dried tomatoes",qty:"jar",cat:"pantry"},
+    {name:"Double cream",qty:"300ml",cat:"dairy"},{name:"Chicken stock",qty:"200ml",cat:"pantry"},
+    {name:"Parmesan",qty:"block",cat:"dairy"},{name:"Garlic",qty:"4 cloves",cat:"produce"},
+    {name:"Fresh basil",qty:"small bunch",cat:"produce"},{name:"Chilli flakes",qty:"pinch",cat:"herbs"},
+    {name:"Pasta or rice",qty:"400g",cat:"pantry"},
+  ]},
+  {name:"Creamy Chicken with Mash & Tenderstem",cat:"Chicken",protein:"chicken",ing:[
+    {name:"Chicken breasts",qty:"3",cat:"meat"},{name:"Potatoes",qty:"1kg",cat:"produce"},
+    {name:"Tenderstem broccoli",qty:"300g",cat:"produce"},{name:"Double cream",qty:"200ml",cat:"dairy"},
+    {name:"Chicken stock",qty:"200ml",cat:"pantry"},{name:"Garlic",qty:"3 cloves",cat:"produce"},
+    {name:"Butter",qty:"100g",cat:"dairy"},{name:"Milk",qty:"100ml",cat:"dairy"},
+    {name:"Wholegrain mustard",qty:"1 tbsp",cat:"pantry"},{name:"Tarragon or thyme",qty:"few sprigs",cat:"herbs"},
+  ]},
+  {name:"Garlic Parmesan Chicken Pasta",cat:"Chicken",protein:"chicken",ing:[
+    {name:"Chicken breasts",qty:"3",cat:"meat"},{name:"Pasta (penne/rigatoni)",qty:"400g",cat:"pantry"},
+    {name:"Double cream",qty:"300ml",cat:"dairy"},{name:"Parmesan",qty:"block",cat:"dairy"},
+    {name:"Garlic",qty:"6 cloves",cat:"produce"},{name:"Butter",qty:"50g",cat:"dairy"},
+    {name:"Chicken stock",qty:"200ml",cat:"pantry"},{name:"Italian seasoning",qty:"1 tsp",cat:"herbs"},
+    {name:"Chilli flakes",qty:"pinch",cat:"herbs"},{name:"Parsley",qty:"small bunch",cat:"produce"},
+  ]},
+  {name:"Chicken Alfredo",cat:"Chicken",protein:"chicken",ing:[
+    {name:"Chicken breasts",qty:"3",cat:"meat"},{name:"Fettuccine or tagliatelle",qty:"400g",cat:"pantry"},
+    {name:"Double cream",qty:"300ml",cat:"dairy"},{name:"Parmesan",qty:"block",cat:"dairy"},
+    {name:"Butter",qty:"75g",cat:"dairy"},{name:"Garlic",qty:"4 cloves",cat:"produce"},
+    {name:"Parsley",qty:"small bunch",cat:"produce"},
+  ]},
+  {name:"Chicken Provencal",cat:"Chicken",protein:"chicken",ing:[
+    {name:"Chicken thighs bone-in",qty:"6-8",cat:"meat"},{name:"Tinned tomatoes",qty:"1 tin",cat:"pantry"},
+    {name:"Black olives",qty:"100g",cat:"pantry"},{name:"Onion",qty:"1",cat:"produce"},
+    {name:"Garlic",qty:"4 cloves",cat:"produce"},{name:"White wine",qty:"150ml",cat:"pantry"},
+    {name:"Herbes de Provence",qty:"1 tbsp",cat:"herbs"},{name:"Bay leaves",qty:"2",cat:"herbs"},
+    {name:"Crusty bread",qty:"loaf",cat:"bakery"},
+  ]},
+  {name:"Chicken Tikka Masala",cat:"Chicken",protein:"chicken",ing:[
+    {name:"Chicken breasts or thighs",qty:"700g",cat:"meat"},{name:"Greek yoghurt",qty:"300g",cat:"dairy"},
+    {name:"Double cream",qty:"200ml",cat:"dairy"},{name:"Tinned tomatoes",qty:"1 tin",cat:"pantry"},
+    {name:"Onions",qty:"2",cat:"produce"},{name:"Garlic",qty:"6 cloves",cat:"produce"},
+    {name:"Ginger",qty:"thumb-sized",cat:"produce"},{name:"Garam masala",qty:"2 tbsp",cat:"herbs"},
+    {name:"Ground cumin",qty:"1 tbsp",cat:"herbs"},{name:"Ground coriander",qty:"1 tbsp",cat:"herbs"},
+    {name:"Turmeric",qty:"1 tsp",cat:"herbs"},{name:"Paprika",qty:"1 tbsp",cat:"herbs"},
+    {name:"Kashmiri chilli powder",qty:"1 tsp",cat:"herbs"},{name:"Fresh coriander",qty:"small bunch",cat:"produce"},
+    {name:"Basmati rice",qty:"400g",cat:"pantry"},{name:"Naan",qty:"4",cat:"bakery"},
+  ]},
+  {name:"Crispy Chicken Subs",cat:"Chicken",protein:"chicken",ing:[
+    {name:"Chicken breasts",qty:"3",cat:"meat"},{name:"Sub rolls",qty:"4",cat:"bakery"},
+    {name:"Buttermilk",qty:"300ml",cat:"dairy"},{name:"Plain flour",qty:"200g",cat:"pantry"},
+    {name:"Panko breadcrumbs",qty:"150g",cat:"pantry"},{name:"Eggs",qty:"2",cat:"dairy"},
+    {name:"Iceberg lettuce",qty:"1",cat:"produce"},{name:"Mayonnaise",qty:"jar",cat:"pantry"},
+    {name:"Pickles",qty:"jar",cat:"pantry"},{name:"Cheese slices",qty:"pack",cat:"dairy"},
+    {name:"Paprika",qty:"1 tsp",cat:"herbs"},{name:"Garlic powder",qty:"1 tsp",cat:"herbs"},
+  ]},
+  {name:"Chicken Bacon Lettuce Tomato Burger",cat:"Chicken",protein:"chicken",ing:[
+    {name:"Chicken breasts",qty:"3-4",cat:"meat"},{name:"Streaky bacon",qty:"pack",cat:"meat"},
+    {name:"Brioche buns",qty:"4",cat:"bakery"},{name:"Tomatoes",qty:"2",cat:"produce"},
+    {name:"Little gem or iceberg",qty:"1",cat:"produce"},{name:"Cheese slices",qty:"pack",cat:"dairy"},
+    {name:"Mayonnaise",qty:"jar",cat:"pantry"},{name:"Dijon mustard",qty:"jar",cat:"pantry"},
+  ]},
+  {name:"Lemon Garlic Chicken Kebabs",cat:"Chicken",protein:"chicken",ing:[
+    {name:"Chicken thigh fillets",qty:"800g",cat:"meat"},{name:"Lemons",qty:"3",cat:"produce"},
+    {name:"Garlic",qty:"6 cloves",cat:"produce"},{name:"Greek yoghurt",qty:"200g",cat:"dairy"},
+    {name:"Flatbreads",qty:"4",cat:"bakery"},{name:"Cucumber",qty:"1",cat:"produce"},
+    {name:"Red onion",qty:"1",cat:"produce"},{name:"Parsley",qty:"small bunch",cat:"produce"},
+    {name:"Mint",qty:"small bunch",cat:"produce"},{name:"Ground cumin",qty:"1 tbsp",cat:"herbs"},
+    {name:"Paprika",qty:"1 tbsp",cat:"herbs"},
+  ]},
+  {name:"Buffalo Chicken Wraps",cat:"Chicken",protein:"chicken",ing:[
+    {name:"Chicken breasts",qty:"3",cat:"meat"},{name:"Tortilla wraps",qty:"pack",cat:"bakery"},
+    {name:"Frank's RedHot or hot sauce",qty:"bottle",cat:"pantry"},{name:"Butter",qty:"100g",cat:"dairy"},
+    {name:"Blue cheese or ranch",qty:"jar",cat:"dairy"},{name:"Cream cheese",qty:"small tub",cat:"dairy"},
+    {name:"Iceberg or romaine",qty:"1",cat:"produce"},{name:"Tomatoes",qty:"2",cat:"produce"},
+    {name:"Red onion",qty:"1",cat:"produce"},{name:"Cheddar",qty:"block",cat:"dairy"},
+    {name:"Smoked paprika",qty:"1 tsp",cat:"herbs"},{name:"Garlic powder",qty:"1 tsp",cat:"herbs"},
+    {name:"Cayenne",qty:"pinch",cat:"herbs"},
+  ]},
+  {name:"Butter Chicken",cat:"Chicken",protein:"chicken",ing:[
+    {name:"Chicken thighs",qty:"700g",cat:"meat"},{name:"Tinned tomatoes",qty:"1 tin",cat:"pantry"},
+    {name:"Double cream",qty:"200ml",cat:"dairy"},{name:"Butter",qty:"100g",cat:"dairy"},
+    {name:"Greek yoghurt",qty:"200g",cat:"dairy"},{name:"Onion",qty:"1",cat:"produce"},
+    {name:"Garlic",qty:"6 cloves",cat:"produce"},{name:"Ginger",qty:"thumb-sized",cat:"produce"},
+    {name:"Garam masala",qty:"1 tbsp",cat:"herbs"},{name:"Ground cumin",qty:"1 tsp",cat:"herbs"},
+    {name:"Kashmiri chilli",qty:"1 tsp",cat:"herbs"},{name:"Fenugreek",qty:"1 tsp",cat:"herbs",note:"optional"},
+    {name:"Basmati rice",qty:"400g",cat:"pantry"},{name:"Naan",qty:"4",cat:"bakery"},
+  ]},
+  {name:"Chicken & Vegetable Soup",cat:"Chicken",protein:"chicken",ing:[
+    {name:"Chicken thighs",qty:"500g",cat:"meat"},{name:"Onion",qty:"1",cat:"produce"},
+    {name:"Carrots",qty:"3",cat:"produce"},{name:"Celery",qty:"3 sticks",cat:"produce"},
+    {name:"Leek",qty:"1",cat:"produce"},{name:"Potatoes",qty:"3 medium",cat:"produce"},
+    {name:"Chicken stock",qty:"1.5L",cat:"pantry"},{name:"Bay leaves",qty:"2",cat:"herbs"},
+    {name:"Thyme",qty:"few sprigs",cat:"herbs"},{name:"Parsley",qty:"small bunch",cat:"produce"},
+    {name:"Crusty bread",qty:"loaf",cat:"bakery"},
+  ]},
+  {name:"Chilli Garlic Noodles with Chicken",cat:"Asian",protein:"chicken",ing:[
+    {name:"Chicken breasts or thighs",qty:"400g",cat:"meat"},{name:"Egg noodles",qty:"400g",cat:"pantry"},
+    {name:"Garlic",qty:"8 cloves",cat:"produce"},{name:"Spring onions",qty:"bunch",cat:"produce"},
+    {name:"Chilli oil or crisp",qty:"jar",cat:"pantry"},{name:"Soy sauce",qty:"bottle",cat:"pantry"},
+    {name:"Dark soy",qty:"bottle",cat:"pantry"},{name:"Sesame oil",qty:"bottle",cat:"pantry"},
+    {name:"Rice vinegar",qty:"bottle",cat:"pantry"},{name:"Brown sugar",qty:"small",cat:"pantry"},
+    {name:"Pak choi",qty:"2",cat:"produce"},
+  ]},
+  {name:"Crispy Chicken in Black Bean Sauce",cat:"Asian",protein:"chicken",ing:[
+    {name:"Chicken thighs",qty:"600g",cat:"meat"},{name:"Black bean sauce",qty:"jar",cat:"pantry"},
+    {name:"Cornflour",qty:"100g",cat:"pantry"},{name:"Garlic",qty:"4 cloves",cat:"produce"},
+    {name:"Ginger",qty:"thumb",cat:"produce"},{name:"Spring onions",qty:"bunch",cat:"produce"},
+    {name:"Red pepper",qty:"1",cat:"produce"},{name:"Green pepper",qty:"1",cat:"produce"},
+    {name:"Soy sauce",qty:"bottle",cat:"pantry"},{name:"Shaoxing wine",qty:"splash",cat:"pantry"},
+    {name:"Jasmine rice",qty:"400g",cat:"pantry"},
+  ]},
+  {name:"Crispy Peanut Chicken",cat:"Asian",protein:"chicken",ing:[
+    {name:"Chicken breasts",qty:"500g",cat:"meat"},{name:"Peanut butter",qty:"jar",cat:"pantry"},
+    {name:"Soy sauce",qty:"bottle",cat:"pantry"},{name:"Honey",qty:"jar",cat:"pantry"},
+    {name:"Rice vinegar",qty:"bottle",cat:"pantry"},{name:"Sriracha",qty:"bottle",cat:"pantry"},
+    {name:"Cornflour",qty:"50g",cat:"pantry"},{name:"Garlic",qty:"3 cloves",cat:"produce"},
+    {name:"Ginger",qty:"thumb",cat:"produce"},{name:"Spring onions",qty:"bunch",cat:"produce"},
+    {name:"Sesame seeds",qty:"small",cat:"pantry"},{name:"Jasmine rice",qty:"400g",cat:"pantry"},
+  ]},
+  {name:"Thai Green Curry",cat:"Asian",protein:"chicken",ing:[
+    {name:"Chicken thighs",qty:"600g",cat:"meat"},{name:"Coconut milk",qty:"2 tins",cat:"pantry"},
+    {name:"Thai green curry paste",qty:"jar",cat:"pantry"},{name:"Fish sauce",qty:"bottle",cat:"pantry"},
+    {name:"Brown sugar",qty:"small",cat:"pantry"},{name:"Lime",qty:"2",cat:"produce"},
+    {name:"Thai basil or regular",qty:"bunch",cat:"produce"},{name:"Green beans",qty:"200g",cat:"produce"},
+    {name:"Aubergine",qty:"1",cat:"produce"},{name:"Bamboo shoots",qty:"1 tin",cat:"pantry"},
+    {name:"Kaffir lime leaves",qty:"4",cat:"herbs",note:"optional"},{name:"Jasmine rice",qty:"400g",cat:"pantry"},
+  ]},
+  {name:"Pork Belly Ramen",cat:"Asian",protein:"pork",ing:[
+    {name:"Pork belly",qty:"600g",cat:"meat"},{name:"Ramen noodles",qty:"4 portions",cat:"pantry"},
+    {name:"Chicken stock",qty:"1.5L",cat:"pantry"},{name:"Miso paste",qty:"jar",cat:"pantry"},
+    {name:"Soy sauce",qty:"bottle",cat:"pantry"},{name:"Mirin",qty:"bottle",cat:"pantry"},
+    {name:"Eggs",qty:"4",cat:"dairy"},{name:"Spring onions",qty:"bunch",cat:"produce"},
+    {name:"Pak choi",qty:"2",cat:"produce"},{name:"Nori sheets",qty:"pack",cat:"pantry"},
+    {name:"Garlic",qty:"4 cloves",cat:"produce"},{name:"Ginger",qty:"thumb",cat:"produce"},
+    {name:"Sesame oil",qty:"bottle",cat:"pantry"},
+  ]},
+  {name:"Honey Chilli Beef",cat:"Asian",protein:"beef",ing:[
+    {name:"Beef steak strips",qty:"500g",cat:"meat"},{name:"Cornflour",qty:"100g",cat:"pantry"},
+    {name:"Honey",qty:"jar",cat:"pantry"},{name:"Soy sauce",qty:"bottle",cat:"pantry"},
+    {name:"Sweet chilli sauce",qty:"bottle",cat:"pantry"},{name:"Rice vinegar",qty:"bottle",cat:"pantry"},
+    {name:"Garlic",qty:"3 cloves",cat:"produce"},{name:"Ginger",qty:"thumb",cat:"produce"},
+    {name:"Red chillies",qty:"2",cat:"produce"},{name:"Spring onions",qty:"bunch",cat:"produce"},
+    {name:"Jasmine rice",qty:"400g",cat:"pantry"},
+  ]},
+  {name:"Mongolian Lamb",cat:"Asian",protein:"lamb",ing:[
+    {name:"Lamb leg steaks",qty:"500g",cat:"meat"},{name:"Cornflour",qty:"50g",cat:"pantry"},
+    {name:"Hoisin sauce",qty:"bottle",cat:"pantry"},{name:"Soy sauce",qty:"bottle",cat:"pantry"},
+    {name:"Dark soy",qty:"bottle",cat:"pantry"},{name:"Brown sugar",qty:"small",cat:"pantry"},
+    {name:"Spring onions",qty:"bunch",cat:"produce"},{name:"Garlic",qty:"4 cloves",cat:"produce"},
+    {name:"Ginger",qty:"thumb",cat:"produce"},{name:"Jasmine rice",qty:"400g",cat:"pantry"},
+  ]},
+  {name:"Chilli Crisp Noodles",cat:"Asian",protein:"veg",ing:[
+    {name:"Egg noodles",qty:"400g",cat:"pantry"},{name:"Chilli crisp",qty:"jar",cat:"pantry"},
+    {name:"Soy sauce",qty:"bottle",cat:"pantry"},{name:"Black vinegar",qty:"bottle",cat:"pantry"},
+    {name:"Sesame oil",qty:"bottle",cat:"pantry"},{name:"Garlic",qty:"4 cloves",cat:"produce"},
+    {name:"Spring onions",qty:"bunch",cat:"produce"},{name:"Eggs",qty:"4",cat:"dairy"},
+    {name:"Pak choi",qty:"2",cat:"produce"},
+  ]},
+  {name:"Pan Steamed Milk Buns (egg & sausage)",cat:"Asian",protein:"pork",ing:[
+    {name:"Sausages or Spam",qty:"6",cat:"meat"},{name:"Eggs",qty:"6",cat:"dairy"},
+    {name:"Milk bun dough or bao",qty:"6",cat:"bakery"},{name:"Spring onions",qty:"bunch",cat:"produce"},
+    {name:"Kewpie mayo",qty:"bottle",cat:"pantry"},{name:"Soy sauce",qty:"bottle",cat:"pantry"},
+    {name:"Butter",qty:"50g",cat:"dairy"},
+  ]},
+  {name:"Beef Birria Tacos",cat:"Mexican",protein:"beef",ing:[
+    {name:"Beef brisket or chuck",qty:"1kg",cat:"meat"},{name:"Dried guajillo chillies",qty:"6",cat:"herbs"},
+    {name:"Dried ancho chillies",qty:"3",cat:"herbs"},{name:"Corn tortillas",qty:"pack",cat:"bakery"},
+    {name:"Onion",qty:"1",cat:"produce"},{name:"Garlic",qty:"6 cloves",cat:"produce"},
+    {name:"Beef stock",qty:"1L",cat:"pantry"},{name:"Cumin",qty:"1 tbsp",cat:"herbs"},
+    {name:"Oregano",qty:"1 tbsp",cat:"herbs"},{name:"Bay leaves",qty:"2",cat:"herbs"},
+    {name:"Cinnamon stick",qty:"1",cat:"herbs"},{name:"Mozzarella or Oaxaca",qty:"200g",cat:"dairy"},
+    {name:"Lime",qty:"2",cat:"produce"},{name:"Fresh coriander",qty:"bunch",cat:"produce"},
+  ]},
+  {name:"Chicken Enchiladas",cat:"Mexican",protein:"chicken",ing:[
+    {name:"Chicken breasts",qty:"3",cat:"meat"},{name:"Flour tortillas",qty:"pack",cat:"bakery"},
+    {name:"Enchilada sauce or tomatoes",qty:"2 tins",cat:"pantry"},{name:"Cheddar",qty:"block",cat:"dairy"},
+    {name:"Sour cream",qty:"200ml",cat:"dairy"},{name:"Onion",qty:"1",cat:"produce"},
+    {name:"Garlic",qty:"3 cloves",cat:"produce"},{name:"Jalapenos",qty:"jar",cat:"pantry"},
+    {name:"Cumin",qty:"1 tbsp",cat:"herbs"},{name:"Smoked paprika",qty:"1 tbsp",cat:"herbs"},
+    {name:"Fresh coriander",qty:"small bunch",cat:"produce"},
+  ]},
+  {name:"Tostadas with Refried Beans & Chorizo",cat:"Mexican",protein:"pork",ing:[
+    {name:"Cooking chorizo",qty:"300g",cat:"meat"},{name:"Refried beans",qty:"1 tin",cat:"pantry"},
+    {name:"Tostada shells",qty:"pack",cat:"bakery"},{name:"Cheddar",qty:"block",cat:"dairy"},
+    {name:"Sour cream",qty:"200ml",cat:"dairy"},{name:"Avocado",qty:"2",cat:"produce"},
+    {name:"Lime",qty:"2",cat:"produce"},{name:"Tomatoes",qty:"2",cat:"produce"},
+    {name:"Red onion",qty:"1",cat:"produce"},{name:"Fresh coriander",qty:"small bunch",cat:"produce"},
+  ]},
+  {name:"Tacos al Pastor",cat:"Mexican",protein:"pork",ing:[
+    {name:"Pork shoulder",qty:"800g",cat:"meat"},{name:"Pineapple",qty:"small",cat:"produce"},
+    {name:"Achiote paste",qty:"small",cat:"pantry",note:"optional"},{name:"Dried guajillo chillies",qty:"4",cat:"herbs"},
+    {name:"Dried ancho chilli",qty:"2",cat:"herbs"},{name:"White vinegar",qty:"splash",cat:"pantry"},
+    {name:"Corn tortillas",qty:"pack",cat:"bakery"},{name:"Red onion",qty:"1",cat:"produce"},
+    {name:"Lime",qty:"2",cat:"produce"},{name:"Fresh coriander",qty:"bunch",cat:"produce"},
+    {name:"Cumin",qty:"1 tbsp",cat:"herbs"},
+  ]},
+  {name:"Green Chilli Chicken",cat:"Mexican",protein:"chicken",ing:[
+    {name:"Chicken thighs",qty:"700g",cat:"meat"},{name:"Tomatillos or green tomatoes",qty:"400g",cat:"produce"},
+    {name:"Green chillies",qty:"3",cat:"produce"},{name:"Onion",qty:"1",cat:"produce"},
+    {name:"Garlic",qty:"4 cloves",cat:"produce"},{name:"Fresh coriander",qty:"bunch",cat:"produce"},
+    {name:"Lime",qty:"2",cat:"produce"},{name:"Cumin",qty:"1 tbsp",cat:"herbs"},
+    {name:"Chicken stock",qty:"300ml",cat:"pantry"},{name:"Rice or tortillas",qty:"to serve",cat:"pantry"},
+  ]},
+  {name:"Carbonara",cat:"Italian",protein:"pork",ing:[
+    {name:"Guanciale or pancetta",qty:"200g",cat:"meat"},{name:"Spaghetti",qty:"400g",cat:"pantry"},
+    {name:"Eggs",qty:"4",cat:"dairy"},{name:"Pecorino romano",qty:"block",cat:"dairy"},
+    {name:"Parmesan",qty:"block",cat:"dairy"},{name:"Black pepper",qty:"lots",cat:"herbs"},
+  ]},
+  {name:"Mac & Cheese (fancy)",cat:"Italian",protein:"veg",ing:[
+    {name:"Macaroni",qty:"500g",cat:"pantry"},{name:"Mature cheddar",qty:"300g",cat:"dairy"},
+    {name:"Gruyere",qty:"150g",cat:"dairy"},{name:"Parmesan",qty:"block",cat:"dairy"},
+    {name:"Whole milk",qty:"700ml",cat:"dairy"},{name:"Butter",qty:"75g",cat:"dairy"},
+    {name:"Plain flour",qty:"75g",cat:"pantry"},{name:"English mustard",qty:"1 tsp",cat:"pantry"},
+    {name:"Panko breadcrumbs",qty:"100g",cat:"pantry"},{name:"Nutmeg",qty:"pinch",cat:"herbs"},
+  ]},
+  {name:"Bacon Cheeseburgers",cat:"Street",protein:"beef",ing:[
+    {name:"Beef mince (20%)",qty:"700g",cat:"meat"},{name:"Streaky bacon",qty:"pack",cat:"meat"},
+    {name:"Brioche buns",qty:"4",cat:"bakery"},{name:"American cheese slices",qty:"pack",cat:"dairy"},
+    {name:"Iceberg",qty:"1",cat:"produce"},{name:"Tomato",qty:"2",cat:"produce"},
+    {name:"Red onion",qty:"1",cat:"produce"},{name:"Pickles",qty:"jar",cat:"pantry"},
+    {name:"Mayonnaise",qty:"jar",cat:"pantry"},{name:"Ketchup & mustard",qty:"for sauce",cat:"pantry"},
+  ]},
+  {name:"Hot Dogs",cat:"Street",protein:"pork",ing:[
+    {name:"Frankfurters",qty:"8",cat:"meat"},{name:"Hot dog buns",qty:"8",cat:"bakery"},
+    {name:"Onions",qty:"2",cat:"produce"},{name:"American mustard",qty:"bottle",cat:"pantry"},
+    {name:"Ketchup",qty:"bottle",cat:"pantry"},{name:"Cheese slices",qty:"pack",cat:"dairy",note:"optional"},
+    {name:"Crispy onions",qty:"packet",cat:"pantry"},{name:"Jalapenos",qty:"jar",cat:"pantry",note:"optional"},
+  ]},
+  {name:"Doner Kebab",cat:"Street",protein:"beef",ing:[
+    {name:"Lamb or beef mince",qty:"700g",cat:"meat"},{name:"Flatbreads or pitta",qty:"6",cat:"bakery"},
+    {name:"Onion",qty:"1",cat:"produce"},{name:"Garlic",qty:"4 cloves",cat:"produce"},
+    {name:"Iceberg",qty:"1",cat:"produce"},{name:"Tomatoes",qty:"2",cat:"produce"},
+    {name:"Red onion",qty:"1",cat:"produce"},{name:"Greek yoghurt",qty:"200g",cat:"dairy"},
+    {name:"Cucumber",qty:"1",cat:"produce"},{name:"Mint",qty:"small bunch",cat:"produce"},
+    {name:"Chilli sauce & garlic sauce",qty:"bottles",cat:"pantry"},{name:"Cumin",qty:"1 tbsp",cat:"herbs"},
+    {name:"Oregano",qty:"1 tbsp",cat:"herbs"},{name:"Paprika",qty:"1 tbsp",cat:"herbs"},
+  ]},
+  {name:"Turkey Mince Chilli",cat:"Lighter",protein:"turkey",ing:[
+    {name:"Turkey mince",qty:"700g",cat:"meat"},{name:"Kidney beans",qty:"2 tins",cat:"pantry"},
+    {name:"Black beans",qty:"1 tin",cat:"pantry"},{name:"Tinned tomatoes",qty:"2 tins",cat:"pantry"},
+    {name:"Onion",qty:"1",cat:"produce"},{name:"Garlic",qty:"4 cloves",cat:"produce"},
+    {name:"Red pepper",qty:"1",cat:"produce"},{name:"Chilli powder",qty:"1 tbsp",cat:"herbs"},
+    {name:"Cumin",qty:"1 tbsp",cat:"herbs"},{name:"Smoked paprika",qty:"1 tbsp",cat:"herbs"},
+    {name:"Oregano",qty:"1 tsp",cat:"herbs"},{name:"Dark chocolate",qty:"small square",cat:"pantry"},
+    {name:"Rice or wraps",qty:"to serve",cat:"pantry"},
+  ]},
+  {name:"Lamb Koftas with Flatbread & Tzatziki",cat:"Lighter",protein:"lamb",ing:[
+    {name:"Lamb mince",qty:"600g",cat:"meat"},{name:"Flatbreads",qty:"4",cat:"bakery"},
+    {name:"Greek yoghurt",qty:"300g",cat:"dairy"},{name:"Cucumber",qty:"1",cat:"produce"},
+    {name:"Mint",qty:"small bunch",cat:"produce"},{name:"Parsley",qty:"small bunch",cat:"produce"},
+    {name:"Red onion",qty:"1",cat:"produce"},{name:"Tomatoes",qty:"2",cat:"produce"},
+    {name:"Lemon",qty:"1",cat:"produce"},{name:"Garlic",qty:"4 cloves",cat:"produce"},
+    {name:"Cumin",qty:"1 tbsp",cat:"herbs"},{name:"Coriander seeds",qty:"1 tsp",cat:"herbs"},
+    {name:"Paprika",qty:"1 tbsp",cat:"herbs"},
+  ]},
+  {name:"Crispy Pork Belly",cat:"Other",protein:"pork",ing:[
+    {name:"Pork belly",qty:"1kg",cat:"meat"},{name:"Chinese five spice",qty:"1 tsp",cat:"herbs"},
+    {name:"White pepper",qty:"pinch",cat:"herbs"},{name:"Flaky sea salt",qty:"for scoring",cat:"herbs"},
+    {name:"Potatoes or rice",qty:"to serve",cat:"produce"},
+    {name:"Apple sauce",qty:"jar",cat:"pantry",note:"optional"},
+    {name:"Greens (pak choi)",qty:"300g",cat:"produce"},
+  ]},
+  {name:"One-pan Lemon Herb Salmon",cat:"Other",protein:"fish",ing:[
+    {name:"Salmon fillets",qty:"3-4",cat:"meat"},{name:"Lemons",qty:"2",cat:"produce"},
+    {name:"New potatoes",qty:"600g",cat:"produce"},{name:"Asparagus or green beans",qty:"300g",cat:"produce"},
+    {name:"Cherry tomatoes",qty:"250g",cat:"produce"},{name:"Garlic",qty:"4 cloves",cat:"produce"},
+    {name:"Butter",qty:"50g",cat:"dairy"},{name:"Dill",qty:"small bunch",cat:"produce"},
+    {name:"Parsley",qty:"small bunch",cat:"produce"},
+  ]},
+  {name:"Shakshuka",cat:"Other",protein:"veg",ing:[
+    {name:"Tinned tomatoes",qty:"2 tins",cat:"pantry"},{name:"Eggs",qty:"6",cat:"dairy"},
+    {name:"Red peppers",qty:"2",cat:"produce"},{name:"Onion",qty:"1",cat:"produce"},
+    {name:"Garlic",qty:"4 cloves",cat:"produce"},{name:"Feta",qty:"200g",cat:"dairy"},
+    {name:"Cumin",qty:"1 tbsp",cat:"herbs"},{name:"Smoked paprika",qty:"1 tbsp",cat:"herbs"},
+    {name:"Harissa",qty:"jar",cat:"pantry",note:"optional"},{name:"Fresh coriander",qty:"small bunch",cat:"produce"},
+    {name:"Crusty bread or flatbread",qty:"loaf",cat:"bakery"},
+  ]},
+];
+
+var DAYS=["Mon","Tue","Wed","Thu","Fri","Sat","Sun"];
+var FULLDAYS=["Monday","Tuesday","Wednesday","Thursday","Friday","Saturday","Sunday"];
+var CATS=[
+  {key:"meat",label:"Meat & Fish"},
+  {key:"produce",label:"Fruit & Veg"},
+  {key:"dairy",label:"Dairy & Eggs"},
+  {key:"bakery",label:"Bakery"},
+  {key:"pantry",label:"Pantry"},
+  {key:"herbs",label:"Herbs & Spices"},
+  {key:"frozen",label:"Frozen"},
+];
+var SECS=[
+  {key:"British",label:"British / Comfort"},{key:"Chicken",label:"Chicken"},{key:"Asian",label:"Asian"},
+  {key:"Mexican",label:"Mexican"},{key:"Italian",label:"Italian / Pasta"},{key:"Street",label:"Burgers & Street"},
+  {key:"Lighter",label:"Lighter Options"},{key:"Other",label:"Other"},
+];
+
+var now=Date.now();
+var WEEK1=[]; // empty default — no zombie "lasagne week" anymore
+var WEEK1_RECENT={};
+
+// Test if localStorage actually persists. Some iOS contexts (Private mode,
+// in-app browsers, low-memory eviction) silently fail to save.
+var STORAGE_OK=false;
+try{
+  localStorage.setItem("mpv4_test","1");
+  STORAGE_OK=localStorage.getItem("mpv4_test")==="1";
+  localStorage.removeItem("mpv4_test");
+}catch(e){STORAGE_OK=false;}
+
+function load(k,d){try{var v=localStorage.getItem(k);return v!==null?JSON.parse(v):d;}catch(e){return d;}}
+function save(k,v){
+  try{
+    localStorage.setItem(k,JSON.stringify(v));
+    // verify it actually stuck — some iOS contexts silently fail
+    var check=localStorage.getItem(k);
+    if(check===null){
+      STORAGE_OK=false;
+      renderStorageWarning();
+    }
+  }catch(e){
+    STORAGE_OK=false;
+    if(typeof renderStorageWarning==="function")renderStorageWarning();
+  }
+}
+
+if(!localStorage.getItem("mpv4_init")){
+  // Migrate from old v3 if available
+  var oldWeek=load("mpv3_week",null);
+  var oldRecent=load("mpv3_recent",null);
+  var oldWeeknum=load("mpv3_weeknum",null);
+  save("mpv4_week",oldWeek||WEEK1);
+  save("mpv4_recent",oldRecent||WEEK1_RECENT);
+  save("mpv4_weeknum",oldWeeknum||1);
+  save("mpv4_shopchecked",{});
+  save("mpv4_init","1");
+}
+
+var S={
+  week:load("mpv4_week",WEEK1),
+  recent:load("mpv4_recent",WEEK1_RECENT),
+  weeknum:load("mpv4_weeknum",1),
+  shopChecked:load("mpv4_shopchecked",{})
+};
+
+var swapIdx=-1;
+
+function getTodayIndex(){
+  var d=new Date();
+  var day=d.getDay();
+  return day===0 ? 6 : day-1;
+}
+
+function getMealIngredients(mealName){
+  var m=MEALS.find(function(x){return x.name===mealName;});
+  return m?m.ing:[];
+}
+
+function renderStorageWarning(){
+  var existing=document.getElementById("storageWarn");
+  if(STORAGE_OK){
+    if(existing)existing.remove();
+    return;
+  }
+  if(existing)return;
+  var w=document.createElement("div");
+  w.id="storageWarn";
+  w.style.cssText="background:#FFE5B4;color:#8B4513;padding:10px 14px;font-size:12px;border-bottom:1px solid #F0C84A;line-height:1.4;";
+  w.innerHTML="<strong>⚠ Storage off.</strong> This browser isn't saving your progress between sessions. Open in Safari (not Chrome / in-app browser) and use Add to Home Screen, or shopping list will reset.";
+  document.body.insertBefore(w,document.body.firstChild);
+}
+
+function renderTonight(){
+  var idx=getTodayIndex();
+  var meal=S.week[idx];
+  var hasAnyPlan=S.week&&S.week.length>0;
+  var html='';
+
+  if(!hasAnyPlan){
+    html+='<div class="tonight-hero"><div class="tonight-inner">';
+    html+='<div class="tonight-day">No week planned yet</div>';
+    html+='<div class="tonight-meal">Generate your first week</div>';
+    html+='<div class="tonight-actions"><button class="tonight-btn primary" onclick="generateWeek()">Generate week ↻</button></div>';
+    html+='</div></div>';
+    document.getElementById("tonightContent").innerHTML=html;
+    return;
+  }
+
+  if(!meal||meal.skipped||!meal.name||meal.name==='—'){
+    html+='<div class="tonight-hero"><div class="tonight-inner">';
+    html+='<div class="tonight-day">'+FULLDAYS[idx]+' · nothing planned</div>';
+    html+='<div class="tonight-meal">Eating out or winging it?</div>';
+    html+='<div class="tonight-actions"><button class="tonight-btn" onclick="switchTab(\'plan\')">Open week</button></div>';
+    html+='</div></div>';
+  } else if(meal.done){
+    html+='<div class="tonight-hero"><div class="tonight-inner">';
+    html+='<div class="tonight-day">'+FULLDAYS[idx]+' · already done ✓</div>';
+    html+='<div class="tonight-meal">'+meal.name+'</div>';
+    html+='<span class="tonight-tag">'+meal.protein+'</span>';
+    html+='</div></div>';
+    html+=renderUpNext(idx);
+  } else {
+    html+='<div class="tonight-hero"><div class="tonight-inner">';
+    html+='<div class="tonight-day">'+FULLDAYS[idx]+' · cooking tonight</div>';
+    html+='<div class="tonight-meal">'+meal.name+'</div>';
+    html+='<span class="tonight-tag">'+meal.protein+'</span>';
+    html+='<div class="tonight-actions">';
+    html+='<button class="tonight-btn primary" onclick="markDone('+idx+')">Mark done ✓</button>';
+    html+='<button class="tonight-btn" onclick="openSwap('+idx+')">Swap</button>';
+    html+='</div>';
+    html+='</div></div>';
+
+    var ing=getMealIngredients(meal.name);
+    if(ing.length){
+      html+='<div class="tonight-ingredients">';
+      html+='<div class="tonight-ing-title">What you need</div>';
+      html+='<ul class="ing-list">';
+      ing.forEach(function(i){
+        html+='<li>'+i.name+' — <span style="color:var(--muted);">'+i.qty+(i.note?' ('+i.note+')':'')+'</span></li>';
+      });
+      html+='</ul></div>';
+    }
+
+    html+=renderUpNext(idx);
+  }
+
+  document.getElementById("tonightContent").innerHTML=html;
+}
+
+function renderUpNext(fromIdx){
+  var upcoming=[];
+  for(var i=fromIdx+1;i<S.week.length&&upcoming.length<3;i++){
+    var m=S.week[i];
+    if(m&&!m.skipped&&!m.done){upcoming.push({idx:i,meal:m});}
+  }
+  if(!upcoming.length)return '';
+  var html='<div class="up-next"><div class="up-next-title">Coming up</div>';
+  upcoming.forEach(function(u){
+    html+='<div class="up-next-row"><span class="up-next-day">'+DAYS[u.idx]+'</span><span class="up-next-name">'+u.meal.name+'</span><span class="tag-sm t-'+u.meal.protein+'">'+u.meal.protein+'</span></div>';
+  });
+  html+='</div>';
+  return html;
+}
+
+function renderPlan(){
+  document.getElementById("weekLabel").textContent="Week "+S.weeknum;
+  var todayIdx=getTodayIndex();
+  var html='<div class="days">';
+  var anyDone=S.week.some(function(m){return m.done&&!m.skipped;});
+  var anyTodo=S.week.some(function(m){return !m.done&&!m.skipped;});
+
+  if(anyDone){
+    html+='<div class="cluster-label">Done this week ✓</div>';
+    S.week.forEach(function(m,i){
+      if(!m.done||m.skipped)return;
+      html+='<div class="day-card done"><span class="day-label">'+DAYS[i]+'</span><span class="day-meal">'+m.name+'</span><span class="done-badge">done</span></div>';
+    });
+  }
+  if(anyTodo){
+    html+='<div class="cluster-label" style="margin-top:12px;">Still to come</div>';
+    S.week.forEach(function(m,i){
+      if(m.done||m.skipped)return;
+      var isToday=i===todayIdx;
+      html+='<div class="day-card'+(isToday?' today':'')+'"><span class="day-label">'+DAYS[i]+'</span><span class="day-meal">'+m.name+'</span>';
+      if(isToday)html+='<span class="today-badge">today</span>';
+      else html+='<span class="cluster-tag">'+m.protein+'</span>';
+      html+='<button class="day-action done-btn" onclick="markDone('+i+')">✓</button>';
+      html+='<button class="day-action" onclick="openSwap('+i+')">swap</button>';
+      html+='</div>';
+    });
+  }
+  if(!anyDone&&!anyTodo){
+    html+='<div class="empty-state">No meals this week. Tap "New week" at the top to generate.</div>';
+  }
+  html+='</div><div class="info-bar" style="margin-top:14px;"><p><strong>Tip:</strong> Tap ✓ when you\'ve cooked a meal. Tap swap to change. "New week" up top when ready to move on.</p></div>';
+  document.getElementById("planContent").innerHTML=html;
+}
+
+function markDone(idx){
+  S.week[idx].done=true;
+  save("mpv4_week",S.week);
+  renderAll();
+}
+
+function getShoppingList(){
+  var needed={};
+  S.week.forEach(function(m,i){
+    if(m.skipped||m.done)return;
+    var ings=getMealIngredients(m.name);
+    ings.forEach(function(ing){
+      var key=ing.name.toLowerCase();
+      if(!needed[key]){needed[key]={name:ing.name,cat:ing.cat,qtys:[],mealDays:[]};}
+      needed[key].qtys.push(ing.qty);
+      needed[key].mealDays.push(DAYS[i]);
+    });
+  });
+  var byCat={};
+  Object.values(needed).forEach(function(item){
+    var c=item.cat||"pantry";
+    if(!byCat[c])byCat[c]=[];
+    var uniqQtys=[];
+    item.qtys.forEach(function(q){if(uniqQtys.indexOf(q)===-1)uniqQtys.push(q);});
+    var uniqDays=[];
+    item.mealDays.forEach(function(d){if(uniqDays.indexOf(d)===-1)uniqDays.push(d);});
+    byCat[c].push({
+      name:item.name,
+      qty:uniqQtys.join(' + '),
+      days:uniqDays.join(', ')
+    });
+  });
+  return byCat;
+}
+
+function renderShop(){
+  var byCat=getShoppingList();
+  var totalCount=0, checkedCount=0;
+  Object.values(byCat).forEach(function(items){
+    items.forEach(function(it){totalCount++;if(S.shopChecked[it.name.toLowerCase()])checkedCount++;});
+  });
+  var pct=totalCount?Math.round(checkedCount/totalCount*100):0;
+
+  var html='<div class="shop-header"><div class="shop-progress-wrap">';
+  html+='<div class="shop-progress-row"><span class="shop-progress-label">Shopping progress</span><span class="shop-progress-pct">'+checkedCount+' / '+totalCount+' · '+pct+'%</span></div>';
+  html+='<div class="shop-progress-bar-wrap"><div class="shop-progress-bar" style="width:'+pct+'%"></div></div>';
+  html+='<button class="shop-reset" onclick="resetShop()">Reset ticks</button>';
+  html+='</div></div>';
+
+  if(totalCount===0){
+    html+='<div class="shop-empty">All meals this week are done. Time for a new week ↻</div>';
+  } else {
+    CATS.forEach(function(cat){
+      var items=byCat[cat.key];
+      if(!items||!items.length)return;
+      items.sort(function(a,b){return a.name.localeCompare(b.name);});
+      html+='<div class="shop-section"><div class="shop-section-header">'+cat.label+'</div><div class="shop-section-body">';
+      items.forEach(function(it){
+        var isChecked=S.shopChecked[it.name.toLowerCase()];
+        html+='<div class="shop-row'+(isChecked?' checked':'')+'" onclick="toggleShop(this,\''+escQ(it.name)+'\')">';
+        html+='<div class="shop-box"><svg class="shop-tick" viewBox="0 0 14 14" fill="none"><polyline points="2,7 5.5,11 12,3" stroke="white" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg></div>';
+        html+='<div class="shop-item-body"><div class="shop-item-name">'+it.name+'</div><div class="shop-item-note">'+it.qty+' — '+it.days+'</div></div>';
+        html+='</div>';
+      });
+      html+='</div></div>';
+    });
+  }
+  document.getElementById("shopContent").innerHTML=html;
+}
+
+function toggleShop(el,name){
+  var k=name.toLowerCase();
+  var isNowChecked;
+  if(S.shopChecked[k]){
+    delete S.shopChecked[k];
+    el.classList.remove('checked');
+    isNowChecked=false;
+  } else {
+    S.shopChecked[k]=true;
+    el.classList.add('checked');
+    isNowChecked=true;
+  }
+  save("mpv4_shopchecked",S.shopChecked);
+  // update progress bar without full re-render (keeps scroll position)
+  var byCat=getShoppingList();
+  var totalCount=0,checkedCount=0;
+  Object.values(byCat).forEach(function(items){items.forEach(function(it){totalCount++;if(S.shopChecked[it.name.toLowerCase()])checkedCount++;});});
+  var pct=totalCount?Math.round(checkedCount/totalCount*100):0;
+  var bar=document.querySelector('.shop-progress-bar');
+  var lbl=document.querySelector('.shop-progress-pct');
+  if(bar)bar.style.width=pct+'%';
+  if(lbl)lbl.textContent=checkedCount+' / '+totalCount+' · '+pct+'%';
+}
+
+function resetShop(){
+  if(!confirm('Reset all ticks?'))return;
+  S.shopChecked={};
+  save("mpv4_shopchecked",S.shopChecked);
+  renderShop();
+}
+
+function generateWeek(){
+  var cutoff=Date.now()-(21*24*60*60*1000);
+  var avail=MEALS.filter(function(m){var t=S.recent[m.name];return !t||t<cutoff;});
+  if(avail.length<7){
+    Object.entries(S.recent).sort(function(a,b){return a[1]-b[1];}).slice(0,7-avail.length).forEach(function(e){delete S.recent[e[0]];});
+    save("mpv4_recent",S.recent);
+    avail=MEALS.filter(function(m){var t=S.recent[m.name];return !t||t<cutoff;});
+  }
+  var pools={chicken:[],beef:[],pork:[],other:[]};
+  avail.forEach(function(m){
+    if(m.protein==="chicken")pools.chicken.push(m);
+    else if(m.protein==="beef")pools.beef.push(m);
+    else if(m.protein==="pork")pools.pork.push(m);
+    else pools.other.push(m);
+  });
+  [pools.chicken,pools.beef,pools.pork,pools.other].forEach(shuffle);
+  var plan=[];
+  [{p:pools.chicken,n:3},{p:pools.beef,n:2},{p:pools.pork,n:1},{p:pools.other.concat(pools.chicken.slice(3)).concat(pools.beef.slice(2)),n:1}].forEach(function(t){
+    for(var i=0;i<t.n&&t.p.length;i++)plan.push(t.p.shift());
+  });
+  var rest=avail.filter(function(m){return !plan.includes(m);});shuffle(rest);
+  while(plan.length<7&&rest.length)plan.push(rest.shift());
+  plan=plan.slice(0,7);
+  var ord={chicken:0,beef:1,pork:2,lamb:3,turkey:4,fish:5,veg:6};
+  plan.sort(function(a,b){return(ord[a.protein]||6)-(ord[b.protein]||6);});
+  var wp=plan.map(function(m){return{name:m.name,protein:m.protein,done:false};});
+  wp.forEach(function(m){S.recent[m.name]=Date.now();});
+  save("mpv4_recent",S.recent);
+  S.weeknum++;S.week=wp;
+  S.shopChecked={};
+  save("mpv4_week",wp);save("mpv4_weeknum",S.weeknum);save("mpv4_shopchecked",S.shopChecked);
+  renderAll();switchTab("tonight");
+}
+
+function openSwap(idx){
+  swapIdx=idx;
+  var cur=S.week[idx];
+  var cutoff=Date.now()-(21*24*60*60*1000);
+  var html='';
+  MEALS.forEach(function(m){
+    if(m.name===cur.name)return;
+    var used=S.recent[m.name]&&S.recent[m.name]>=cutoff;
+    html+='<div class="modal-item'+(used?' used-item':'')+'" onclick="doSwap(\''+escQ(m.name)+'\',\''+m.protein+'\')">';
+    html+='<span class="modal-item-name">'+m.name+'</span>';
+    if(used)html+='<span class="modal-item-badge">recent</span>';
+    html+='<span class="tag-sm t-'+m.protein+'">'+m.protein+'</span></div>';
+  });
+  document.getElementById("swapList").innerHTML=html;
+  document.getElementById("swapOverlay").classList.add("open");
+}
+
+function doSwap(name,protein){
+  S.week[swapIdx]={name:name,protein:protein,done:false};
+  S.recent[name]=Date.now();
+  save("mpv4_week",S.week);save("mpv4_recent",S.recent);
+  closeSwapDirect();renderAll();
+}
+
+function closeSwap(e){if(e.target===document.getElementById("swapOverlay"))closeSwapDirect();}
+function closeSwapDirect(){document.getElementById("swapOverlay").classList.remove("open");}
+
+function renderMeals(){
+  var cutoff=Date.now()-(21*24*60*60*1000),html='';
+  SECS.forEach(function(sec){
+    var meals=MEALS.filter(function(m){return m.cat===sec.key;});
+    if(!meals.length)return;
+    html+='<div class="meal-section"><div class="meal-section-header">'+sec.label+'</div><div class="meal-section-body">';
+    meals.forEach(function(m){
+      var used=S.recent[m.name]&&S.recent[m.name]>=cutoff;
+      html+='<div class="meal-row'+(used?' used':'')+'"><span class="meal-row-name">'+m.name+'</span>';
+      if(used)html+='<span class="modal-item-badge">recent</span>';
+      html+='<span class="tag-sm t-'+m.protein+'">'+m.protein+'</span></div>';
+    });
+    html+='</div></div>';
+  });
+  document.getElementById("mealsContent").innerHTML=html;
+}
+
+function switchTab(id){
+  var ids=['tonight','plan','shop','meals'];
+  document.querySelectorAll('.tab').forEach(function(t,i){t.classList.toggle('active',ids[i]===id);});
+  document.querySelectorAll('.panel').forEach(function(p){p.classList.remove('active');});
+  document.getElementById('panel-'+id).classList.add('active');
+  window.scrollTo(0,0);
+}
+
+function shuffle(a){for(var i=a.length-1;i>0;i--){var j=Math.floor(Math.random()*(i+1));var t=a[i];a[i]=a[j];a[j]=t;}return a;}
+function escQ(s){return s.replace(/'/g,"\\'");}
+
+function renderAll(){renderStorageWarning();renderTonight();renderPlan();renderShop();renderMeals();}
+renderAll();
+</script>
+</body>
+</html>
