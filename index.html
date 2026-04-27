@@ -109,6 +109,17 @@ header p{font-size:11px;color:rgba(255,255,255,0.6);margin-top:1px;}
 .extra-del-btn{background:none;border:none;color:var(--muted);font-size:18px;line-height:1;padding:4px 10px;cursor:pointer;font-family:'DM Sans',sans-serif;flex-shrink:0;}
 .extra-del-btn:active{color:#B33;}
 
+.lock-screen{position:fixed;inset:0;background:var(--accent);z-index:200;display:none;align-items:center;justify-content:center;padding:30px;}
+.lock-screen.open{display:flex;}
+.lock-card{background:#fff;border-radius:14px;padding:28px 22px 22px;max-width:340px;width:100%;text-align:center;box-shadow:0 10px 40px rgba(0,0,0,0.2);}
+.lock-title{font-family:'DM Serif Display',serif;font-size:26px;color:var(--accent);margin-bottom:6px;font-weight:400;}
+.lock-sub{font-size:12px;color:var(--muted);margin-bottom:18px;letter-spacing:0.02em;}
+.lock-input{width:100%;padding:13px 14px;border:1px solid var(--border);border-radius:8px;font-family:'DM Sans',sans-serif;font-size:15px;text-align:center;background:#fff;color:var(--text);-webkit-appearance:none;}
+.lock-input:focus{outline:none;border-color:var(--accent);}
+.lock-error{color:#B33;font-size:12px;margin-top:8px;min-height:16px;}
+.lock-btn{margin-top:6px;width:100%;background:var(--accent);color:#fff;border:none;padding:13px;border-radius:8px;font-family:'DM Sans',sans-serif;font-size:14px;font-weight:600;cursor:pointer;-webkit-appearance:none;}
+.lock-btn:active{background:var(--accent-dark);}
+.lock-link{display:inline-block;margin-top:14px;font-size:11px;color:var(--muted);background:none;border:none;cursor:pointer;text-decoration:underline;font-family:'DM Sans',sans-serif;}
 .tag-sm{font-size:9px;padding:2px 7px;border-radius:20px;white-space:nowrap;font-weight:600;text-transform:uppercase;letter-spacing:0.03em;}
 .t-chicken{background:#E6F1FB;color:#0C447C;}.t-beef{background:#FAECE7;color:#712B13;}.t-pork{background:#FAEEDA;color:#633806;}.t-lamb{background:#FBEAF0;color:#72243E;}.t-fish{background:#E1F5EE;color:#085041;}.t-veg{background:#EAF3DE;color:#27500A;}.t-turkey{background:#F5EEF8;color:#6C3483;}
 .cluster-tag{font-size:9px;padding:2px 7px;border-radius:20px;background:var(--pill-bg);color:var(--pill-text);white-space:nowrap;font-weight:600;text-transform:uppercase;letter-spacing:0.03em;}
@@ -135,6 +146,16 @@ header p{font-size:11px;color:rgba(255,255,255,0.6);margin-top:1px;}
 </style>
 </head>
 <body>
+
+<div class="lock-screen" id="lockScreen">
+  <div class="lock-card">
+    <h2 class="lock-title">Meal Planner</h2>
+    <p class="lock-sub">Hint: Boss</p>
+    <input type="password" class="lock-input" id="lockInput" autocomplete="off" placeholder="Password">
+    <div class="lock-error" id="lockError"></div>
+    <button class="lock-btn" id="lockBtn">Unlock</button>
+  </div>
+</div>
 
 <header>
   <h1>Meal Planner</h1>
@@ -1099,10 +1120,40 @@ window.addExtra=addExtra;
 window.toggleExtra=toggleExtra;
 window.removeExtra=removeExtra;
 
-// initial paint before snapshot arrives
-renderConnecting();
+// ---- password gate ----
+var APP_PASSWORD="HoggyBoos";
+var UNLOCK_KEY="mpv4_unlocked";
+
+function isUnlocked(){
+  try{return localStorage.getItem(UNLOCK_KEY)==="1";}catch(e){return false;}
+}
+
+function showLockScreen(){
+  var screen=document.getElementById("lockScreen");
+  var inp=document.getElementById("lockInput");
+  var err=document.getElementById("lockError");
+  var btn=document.getElementById("lockBtn");
+  screen.classList.add("open");
+  function attempt(){
+    err.textContent="";
+    if(inp.value===APP_PASSWORD){
+      try{localStorage.setItem(UNLOCK_KEY,"1");}catch(e){}
+      screen.classList.remove("open");
+      bootApp();
+    } else {
+      err.textContent="Nope. Hint: Boss.";
+      inp.value="";
+      inp.focus();
+    }
+  }
+  btn.onclick=attempt;
+  inp.onkeydown=function(e){if(e.key==="Enter"){e.preventDefault();attempt();}};
+  setTimeout(function(){inp.focus();},80);
+}
 
 // ---- auth + live sync ----
+var seedAttempted=false;
+
 async function attachListener(){
   onSnapshot(householdRef,async function(snap){
     if(snap.exists()){
@@ -1113,31 +1164,72 @@ async function attachListener(){
       S.shopChecked=d.shopChecked||{};
       S.extras=d.extras||{};
       firstSnapshot=true;
+      seedAttempted=true; // doc exists; never seed over it
       clearConnWarn();
       renderAll();
-    } else {
-      // first time on this household — seed from any leftover localStorage on this device
-      var seed=readLegacyLocalStorage();
-      try{
-        await setDoc(householdRef,{
-          week:seed.week,recent:seed.recent,weeknum:seed.weeknum,
-          shopChecked:seed.shopChecked,updatedAt:serverTimestamp()
-        });
-      }catch(e){
-        showConnWarn("Couldn't create the household doc. "+(e.message||e));
-      }
-      // listener will fire again with the seeded data
+      return;
+    }
+    // Snapshot says doc doesn't exist. If this is just an empty offline cache
+    // on a fresh device, the next snapshot from the server will tell us the
+    // truth. Don't seed until we have server confirmation.
+    if(snap.metadata.fromCache)return;
+    if(seedAttempted)return;
+    seedAttempted=true;
+    // Server confirms household doc doesn't exist — create it with empty defaults.
+    // (We deliberately do NOT migrate from this device's localStorage anymore;
+    // that risked a second device wiping good Firestore data with empty state.)
+    try{
+      await setDoc(householdRef,{
+        week:[],recent:{},weeknum:1,shopChecked:{},extras:{},
+        updatedAt:serverTimestamp()
+      });
+    }catch(e){
+      showConnWarn("Couldn't create the household doc. "+(e.message||e));
     }
   },function(err){
     showConnWarn("Live sync failed. "+(err.message||err));
   });
 }
 
-onAuthStateChanged(fbAuth,async function(user){
-  if(user){attachListener();return;}
-  try{await signInAnonymously(fbAuth);}
-  catch(e){showConnWarn("Sign-in failed. "+(e.message||e));}
-});
+// One-shot recovery hook. Run from DevTools console on a device that still has
+// good localStorage: __forceRestore()
+window.__forceRestore=async function(){
+  var seed=readLegacyLocalStorage();
+  if(!seed.week||!seed.week.length){
+    console.log("No mpv4_* localStorage data on this device to restore.");
+    return;
+  }
+  console.log("Restoring from localStorage:",seed);
+  try{
+    await setDoc(householdRef,{
+      week:seed.week,recent:seed.recent,weeknum:seed.weeknum,
+      shopChecked:seed.shopChecked,extras:S.extras||{},
+      updatedAt:serverTimestamp()
+    });
+    console.log("Restored. Other devices will sync within a second.");
+  }catch(e){
+    console.error("Restore failed:",e);
+  }
+};
+
+// Subtle "lock again" link on the lock card (for handing the laptop back).
+window.__lockApp=function(){
+  try{localStorage.removeItem(UNLOCK_KEY);}catch(e){}
+  location.reload();
+};
+
+function bootApp(){
+  renderConnecting();
+  onAuthStateChanged(fbAuth,async function(user){
+    if(user){attachListener();return;}
+    try{await signInAnonymously(fbAuth);}
+    catch(e){showConnWarn("Sign-in failed. "+(e.message||e));}
+  });
+}
+
+// Decide on load: locked or straight in.
+if(isUnlocked())bootApp();
+else showLockScreen();
 </script>
 </body>
 </html>
