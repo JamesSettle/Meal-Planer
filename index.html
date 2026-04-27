@@ -587,8 +587,8 @@ var MEALS=[
   ]},
 ];
 
-var DAYS=["Mon","Tue","Wed","Thu","Fri","Sat","Sun"];
-var FULLDAYS=["Monday","Tuesday","Wednesday","Thursday","Friday","Saturday","Sunday"];
+var DAYS=["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
+var FULLDAYS=["Sunday","Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"];
 var CATS=[
   {key:"meat",label:"Meat & Fish"},
   {key:"produce",label:"Fruit & Veg"},
@@ -622,9 +622,8 @@ function readLegacyLocalStorage(){
 }
 
 function getTodayIndex(){
-  var d=new Date();
-  var day=d.getDay();
-  return day===0 ? 6 : day-1;
+  // Week now runs Sunday → Saturday, matching JS Date.getDay() directly.
+  return new Date().getDay();
 }
 
 function getMealIngredients(mealName){
