@@ -143,6 +143,32 @@ header p{font-size:11px;color:rgba(255,255,255,0.6);margin-top:1px;}
 .modal-item-name{font-size:14px;font-weight:500;flex:1;}
 .modal-item.used-item .modal-item-name{color:var(--done);}
 .modal-item-badge{font-size:10px;padding:2px 7px;border-radius:10px;background:#FFF8E8;color:#B8860B;border:1px solid #F0C84A;}
+
+.day-meal.clickable{cursor:pointer;}
+.day-meal.clickable::after{content:" ›";color:var(--muted);font-weight:600;}
+.tonight-meal.clickable{cursor:pointer;}
+
+.overlay.recipe-open{align-items:center;}
+.recipe-modal{border-radius:14px;width:calc(100% - 28px);max-width:440px;max-height:85vh;margin:0 14px;padding-bottom:30px;animation:recipeFlipIn 0.55s cubic-bezier(0.2,0.7,0.3,1);transform-origin:center top;}
+@keyframes recipeFlipIn{
+  0%{transform:perspective(1200px) rotateX(-92deg) translateY(-40px);opacity:0;}
+  60%{opacity:1;}
+  100%{transform:perspective(1200px) rotateX(0) translateY(0);opacity:1;}
+}
+.recipe-header{padding:18px 18px 14px;align-items:flex-start;}
+.recipe-subtitle{font-size:11px;color:var(--muted);margin-top:3px;text-transform:uppercase;letter-spacing:0.06em;}
+.recipe-body{padding:0 18px;}
+.recipe-section-title{font-family:'DM Serif Display',serif;font-size:18px;color:var(--accent);font-weight:400;margin:18px 0 10px;letter-spacing:-0.01em;}
+.recipe-ing-group{margin-bottom:10px;}
+.recipe-ing-cat{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:var(--muted);margin:8px 0 4px;}
+.recipe-ing-list{list-style:none;font-size:13px;line-height:1.65;}
+.recipe-ing-list li{display:flex;justify-content:space-between;gap:10px;padding:1px 0;border-bottom:1px dotted transparent;}
+.recipe-ing-list li .ing-qty{color:var(--muted);text-align:right;flex-shrink:0;}
+.recipe-method-list{font-size:14px;line-height:1.6;padding-left:0;list-style:none;counter-reset:rstep;}
+.recipe-method-list li{counter-increment:rstep;padding:7px 0 7px 32px;position:relative;border-bottom:1px solid var(--border);}
+.recipe-method-list li:last-child{border-bottom:none;}
+.recipe-method-list li::before{content:counter(rstep);position:absolute;left:0;top:8px;width:22px;height:22px;background:var(--accent);color:#fff;font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center;border-radius:50%;}
+.recipe-method-empty{font-size:13px;color:var(--muted);font-style:italic;background:#FAF8F3;padding:14px;border-radius:8px;line-height:1.5;}
 </style>
 </head>
 <body>
@@ -182,6 +208,16 @@ header p{font-size:11px;color:rgba(255,255,255,0.6);margin-top:1px;}
   <div class="modal">
     <div class="modal-header"><span class="modal-title">Swap meal</span><button class="modal-close" onclick="closeSwapDirect()">✕</button></div>
     <div id="swapList"></div>
+  </div>
+</div>
+
+<div class="overlay" id="recipeOverlay" onclick="closeRecipe(event)">
+  <div class="modal recipe-modal">
+    <div class="modal-header recipe-header">
+      <div><div class="modal-title" id="recipeTitle">Recipe</div><div class="recipe-subtitle" id="recipeSubtitle"></div></div>
+      <button class="modal-close" onclick="closeRecipeDirect()">✕</button>
+    </div>
+    <div class="recipe-body" id="recipeBody"></div>
   </div>
 </div>
 
@@ -587,6 +623,365 @@ var MEALS=[
   ]},
 ];
 
+// Cooking methods, keyed by meal name. Ingredients listed in MEALS — methods only reference those.
+var METHODS={
+  "Lasagne":[
+    "Soften finely chopped onion, carrot and celery in olive oil over medium heat for 8–10 min. Add diced pancetta and fry until rendered.",
+    "Crank up the heat, add the beef mince, break it up and brown all over — do it in batches if the pan crowds.",
+    "Garlic, oregano, bay leaf in for 1 min. Tomato puree, fry off 2 min. Tinned tomatoes plus a tin of water. Simmer low and slow for 45 min covered, then 15 uncovered.",
+    "Meanwhile melt butter, whisk in flour, cook 1 min. Slowly whisk in warm milk for a thick béchamel. Season hard, stir in half the grated parmesan.",
+    "Layer in a baking dish: ragu, sheets, béchamel. Repeat 2–3 times. Top with torn mozzarella and the rest of the parmesan.",
+    "Bake at 190°C / 375°F for 30–35 min until bubbling and golden. Rest 10 min before cutting or it collapses."
+  ],
+  "Beef Goulash":[
+    "Pat the beef dry, season heavily, sear in batches in a heavy pot — don't crowd or it boils. Set aside.",
+    "Soften sliced onions in the fat for 10 min until golden. Add garlic, sliced red peppers and caraway seeds, cook 3 min.",
+    "Off the heat, stir in both paprikas (they burn fast). Tinned tomatoes, beef stock, bay leaves, beef back in.",
+    "Simmer covered on the lowest heat for 1h45m, or in a 160°C oven, until the beef is fork-tender.",
+    "Add chunked potatoes for the final 30 min, lid off if the sauce is thin.",
+    "Off heat, swirl through most of the sour cream. Serve with the rest dolloped on top."
+  ],
+  "Beef Stroganoff":[
+    "Slice the beef thinly across the grain. Season hard.",
+    "Hot pan, knob of butter, sear the beef in batches for 60 sec a side. Remove and rest.",
+    "Same pan: sliced onion plus more butter, soften 6 min. Garlic and paprika for the last minute.",
+    "Splash in the brandy and let it burn off. Stock and Dijon in, reduce 3 min.",
+    "Cream in, simmer 2 min until silky. Beef back in just to warm through — don't boil or it toughens.",
+    "Serve over rice or buttered pappardelle with chopped parsley on top."
+  ],
+  "Cottage Pie":[
+    "Soften diced onion, carrot and celery in oil for 10 min. Add the beef mince and brown all over, breaking it up.",
+    "Stir in tomato puree, fry 2 min. Worcestershire, thyme leaves, stock in. Simmer 25 min until thick and glossy — not soupy.",
+    "Meanwhile boil chunked potatoes in salted water until fork-tender. Drain well, mash with butter and milk, season aggressively.",
+    "Mince into a baking dish. Spoon the mash on top, rough it up with a fork (more peaks = more crispy bits), scatter grated cheddar.",
+    "Bake at 200°C / 400°F for 25–30 min until golden and crisp on top."
+  ],
+  "Sausage & Mash with Onion Gravy":[
+    "Sausages: low heat in a frying pan with a splash of oil, turn often for 18–20 min until deep brown all over. Don't prick them.",
+    "Onions: slice thin, melt 50g butter in another pan, sweat the onions with thyme and a pinch of salt for 25–30 min until jammy and dark.",
+    "Sprinkle 1 tbsp flour over the onions, cook 1 min. Splash of red wine (if using), reduce. Beef stock in, simmer 8 min until coating-thick. Wholegrain mustard at the end.",
+    "Potatoes: boil chunked in salted water, drain well, mash with the rest of the butter and warm milk. Season hard.",
+    "Plate: pile of mash, sausages on top, gravy poured over everything."
+  ],
+  "Steak & Chips":[
+    "Chips: cut potatoes into 1cm batons, rinse, pat bone dry. First fry in oil at 140°C for 8 min until soft but pale. Drain on a rack.",
+    "Steaks: out of the fridge 30 min before cooking, salt them all over.",
+    "Hot pan (cast iron if you have one), oil. Steaks in — 2–3 min a side for medium-rare on inch-thick. Last minute: knob of butter, smashed garlic, thyme, baste constantly.",
+    "Rest the steaks on a warm plate for 5 min minimum. This is not optional.",
+    "Final fry chips at 180°C for 3–4 min until deep gold and crisp. Drain, hit with flaky salt.",
+    "Peppercorn sauce: deglaze the steak pan with a splash of cream and cracked peppercorns, reduce 2 min. Pour over."
+  ],
+  "Proper Bolognese":[
+    "Fine soffritto: tiny-diced onion, carrot, celery sweated in oil plus a knob of butter for 10–12 min until soft and sweet, no colour.",
+    "Diced pancetta in, render 3 min. Both minces in, brown hard — wait for the colour before stirring or it greys.",
+    "Milk in (yes, really) and simmer until almost gone. It keeps the meat tender.",
+    "Red wine in, reduce by half. Tom puree, fry 1 min. Tinned tomatoes, stock, season.",
+    "Lowest possible heat, lid ajar, 2 hours minimum. Stir every 20 min, top up with water if it dries.",
+    "Cook tagliatelle al dente, toss with the sauce and a splash of pasta water. Parmesan on top."
+  ],
+  "French Onion Soup":[
+    "Slice all the onions thinly. Melt butter in a heavy pot, add onions and a generous pinch of salt.",
+    "Caramelise: medium-low heat for 45–60 min, stirring every few minutes, until deep mahogany. Patience IS the recipe.",
+    "White wine in, scrape the bottom of the pot, reduce until almost dry. Beef stock, thyme, bay. Simmer 25 min.",
+    "Slice the baguette and toast the slices. Ladle soup into oven-proof bowls, float a toast on top, pile with grated gruyere.",
+    "Whack under a hot grill until the cheese bubbles and browns."
+  ],
+  "Chorizo & Butter Bean Stew":[
+    "Slice chorizo into coins. Dry-fry in a wide pan until the oil runs red and the edges are crisp. Set aside half for the top.",
+    "Diced onion and red pepper into the rendered chorizo oil, soften 8 min. Garlic and smoked paprika for the last minute.",
+    "Tinned tomatoes, drained butter beans, chicken stock in. Simmer 15 min. Smash a few beans against the pan with a spoon for body.",
+    "Chorizo back in. Taste for salt — it's usually salty enough already.",
+    "Off heat, chopped parsley. Serve in bowls with crusty bread for mopping."
+  ],
+  "Leek & Potato Soup":[
+    "Wash leeks thoroughly: split lengthwise, fan under cold running water. Slice. Same with the onion.",
+    "Melt butter in a heavy pot, sweat the leeks and onion gently for 10 min — don't let them colour.",
+    "Add diced potatoes and stock. Simmer 20 min until potatoes are properly soft.",
+    "Blend smooth — immersion blender is easiest. Season hard; soups always need more salt than you think.",
+    "Stir in cream off heat. Top each bowl with snipped chives. Bread alongside."
+  ],
+  "Beef Roast with Trimmings":[
+    "Beef out of the fridge 1 hour before. Pat dry, oil, salt, pepper, rosemary. Sear all over in a hot pan, then onto a rack in a 200°C oven. About 15 min per 500g for medium-rare.",
+    "Roasties: parboil chunked potatoes 8 min in salted water, drain hard, shake to rough up the edges. Tip into a tray of smoking hot beef dripping. Roast 50 min at 200°C, turning twice.",
+    "Yorkshires: whisk equal volumes flour, eggs and milk plus a big pinch of salt. Rest 30 min. Heat a few drops of oil in a muffin tin until smoking, pour batter, 20–25 min at 220°C. Don't open the oven.",
+    "Carrots and parsnips: chunked, oiled, salted, into the oven 35 min before serving.",
+    "Tenderstem: blanch 3 min in well-salted water.",
+    "Rest the beef 20 min before carving. Gravy: pan juices plus stock, reduce 5 min. Serve with horseradish on the side."
+  ],
+  "Marry Me Chicken":[
+    "Butterfly the chicken breasts if thick. Season, dust with flour. Sear in oil plus butter until golden both sides. Remove.",
+    "Same pan: garlic and chilli flakes for 30 sec. Roughly chopped sun-dried tomatoes for 1 min.",
+    "Stock in, reduce by half. Cream in, simmer 3 min until silky. Stir in grated parmesan to thicken.",
+    "Chicken back in, gentle simmer 6–8 min until cooked through and the sauce is thick.",
+    "Torn basil leaves at the end. Serve over pasta or rice."
+  ],
+  "Creamy Chicken with Mash & Tenderstem":[
+    "Mash on first: chunk potatoes, boil in salted water for 15 min, drain well, mash with butter and warm milk. Season hard.",
+    "Season chicken, sear in butter both sides until golden. Remove.",
+    "Same pan: garlic for 30 sec. Stock in, reduce by half. Cream, mustard, herbs in, simmer 2 min.",
+    "Chicken back in for a gentle 6 min simmer until cooked through.",
+    "Tenderstem: blanch 3 min in salted water.",
+    "Pile mash, chicken on top, sauce spooned over, tenderstem alongside."
+  ],
+  "Garlic Parmesan Chicken Pasta":[
+    "Pasta on in well-salted boiling water — cook to packet time minus 1 min.",
+    "Chicken: cubed or sliced, seasoned, brown in butter until cooked through. Remove.",
+    "Same pan: more butter, lots of finely sliced garlic, sweat gently 1 min. Don't let it burn — that's bitter.",
+    "Italian seasoning, chilli flakes, stock in, reduce 2 min. Cream in, simmer 2 min.",
+    "Big handful of grated parmesan whisked through. Chicken back in.",
+    "Drained pasta into the sauce with a splash of pasta water. Toss hard. Parsley and extra parmesan on top."
+  ],
+  "Chicken Alfredo":[
+    "Pasta on, well-salted water, cook to packet time minus 1 min.",
+    "Slice the chicken into strips, season, sear in butter both sides until cooked through. Set aside.",
+    "Same pan: butter plus finely chopped garlic for 30 sec. Cream in, gentle simmer 2 min.",
+    "Off heat, a big handful of grated parmesan whisked in until smooth.",
+    "Drained pasta into the pan with a splash of pasta water. Toss until coated and silky.",
+    "Chicken on top, more parmesan, chopped parsley."
+  ],
+  "Chicken Provencal":[
+    "Season the thighs skin-on. Sear skin-side down first in a casserole to render the fat, until deep gold. Flip 2 min. Remove.",
+    "Diced onion in the fat, soften 8 min. Garlic for the last minute. Herbes de Provence in.",
+    "White wine, reduce by half. Tinned tomatoes, olives, bay. Bring to a simmer.",
+    "Thighs back in skin-side up, mostly above the liquid so the skin stays crisp. 35 min at 180°C, or low simmer with lid ajar.",
+    "Crusty bread alongside for mopping."
+  ],
+  "Chicken Tikka Masala":[
+    "Marinade: cube the chicken, mix with yoghurt, half the garlic and ginger (grated), half each of the spices, salt. 1 hour minimum, ideally longer.",
+    "Sear the chicken in hot oil in batches until charred at the edges — undercooked centres are fine, finish in the sauce. Set aside.",
+    "Same pan: sliced onions in oil, brown for 12 min. Add the rest of the garlic and ginger, remaining spices, cook 1 min until fragrant.",
+    "Tinned tomatoes in, blend smooth if you like a silky sauce. Simmer 12 min until the oil splits from the sauce.",
+    "Cream in, then the chicken and its resting juices. Simmer 8 min until thick.",
+    "Serve over basmati with naan. Fresh coriander showered over."
+  ],
+  "Crispy Chicken Subs":[
+    "Slice each breast in half horizontally. Brine in buttermilk plus salt plus half the spices for 2 hours, up to overnight.",
+    "Three trays: seasoned flour, beaten eggs, panko mixed with the remaining spices.",
+    "Drain chicken (don't rinse), dredge flour, egg, panko — pressing the panko on hard.",
+    "Shallow fry in 1cm oil at 180°C for 3 min a side until deep gold and cooked through. Drain on a rack, not paper.",
+    "Slice rolls, mayo both cuts, slice of cheese, hot chicken, pickles, shredded iceberg. Press together."
+  ],
+  "Chicken Bacon Lettuce Tomato Burger":[
+    "Butterfly the chicken breasts. Bash flat between cling film if uneven. Season hard.",
+    "Bacon: dry-fry until crisp, drain on kitchen paper.",
+    "Chicken: hot pan with a slick of oil, 3–4 min a side until golden and cooked through. Slice of cheese on top last minute, lid on briefly to melt.",
+    "Toast brioche buns cut-side down in the chicken pan to soak up the fat.",
+    "Mix mayo and Dijon, smear both cuts. Lettuce, chicken+cheese, bacon, sliced tomato, top bun."
+  ],
+  "Lemon Garlic Chicken Kebabs":[
+    "Marinade: Greek yoghurt plus crushed garlic plus zest and juice of 2 lemons plus cumin and paprika plus salt. Cube the thigh fillets, in for 2 hours minimum.",
+    "Thread onto skewers — if wooden, soak them first or they'll char.",
+    "Hot grill or griddle pan, 3–4 min a side until properly charred and cooked through. Squeeze remaining lemon over while hot.",
+    "Quick salad: thinly sliced red onion, diced cucumber, chopped parsley and mint, lemon juice, salt.",
+    "Warm flatbreads. Stuff with kebabs, salad and a dollop of yoghurt."
+  ],
+  "Buffalo Chicken Wraps":[
+    "Season chicken with smoked paprika, garlic powder, cayenne and salt. Sear in oil both sides until cooked through. Slice into strips.",
+    "Buffalo sauce: melt the butter, whisk in the hot sauce, simmer 30 sec. Toss the chicken in it to coat.",
+    "Ranch / blue cheese dressing: thin with a spoon of cream cheese if it's too thick to drizzle.",
+    "Lay tortilla, spread dressing, shredded iceberg, diced tomatoes, sliced red onion, grated cheddar, buffalo chicken.",
+    "Roll tight, optionally toast seam-side down in a dry pan for crisp edges."
+  ],
+  "Butter Chicken":[
+    "Marinade: yoghurt plus half the spices plus grated garlic and ginger plus salt. Mix in cubed thighs, 1 hour minimum.",
+    "Sear the chicken hard in batches under a screaming grill or in a hot pan until charred at the edges. Reserve with the juices.",
+    "Sauce: melt half the butter in a pan, soften diced onion for 10 min. Rest of garlic and ginger, spices, cook 1 min.",
+    "Tinned tomatoes in, simmer 15 min, then blend smooth.",
+    "Back on the heat: cream in, remaining butter in, simmer 5 min. Chicken plus juices in, 5 min more. Crush fenugreek between your palms over the top.",
+    "Basmati and naan alongside."
+  ],
+  "Chicken & Vegetable Soup":[
+    "Brown seasoned thighs skin-side down in a heavy pot for colour. Remove.",
+    "Diced onion, carrot, celery and leek into the fat, soften 10 min.",
+    "Stock, bay, thyme, chicken back in skin-on (more flavour, strip after). Simmer 30 min.",
+    "Pull the chicken out, shred the meat off the bone, discard skin and bones. Add diced potatoes to the pot, simmer 15 min until tender.",
+    "Chicken back in. Season hard — soups always need more. Chopped parsley at the end.",
+    "Crusty bread alongside."
+  ],
+  "Chilli Garlic Noodles with Chicken":[
+    "Sauce: 3 tbsp light soy + 1 tbsp dark soy + 1 tbsp rice vinegar + 1 tsp brown sugar + 2 tbsp chilli oil/crisp + 1 tsp sesame oil. Stir until the sugar dissolves.",
+    "Slice the chicken thin, season. Stir-fry in screaming hot oil for 3 min, set aside.",
+    "Boil noodles per packet, drain, splash of cold water to stop them sticking.",
+    "Same pan: shower of finely chopped garlic in oil, 20 sec. Halved pak choi in, 1 min.",
+    "Noodles, chicken, sauce all in. Toss hard for 1 min until everything is glossy and coated.",
+    "Sliced spring onions on top. Extra chilli crisp if you like it lively."
+  ],
+  "Crispy Chicken in Black Bean Sauce":[
+    "Rice on first — it takes the longest.",
+    "Cube the chicken, toss in cornflour plus salt plus white pepper until evenly coated.",
+    "Shallow fry in 1cm hot oil in batches for 4 min a side until deep gold and cooked through. Drain.",
+    "Tip out most of the oil. Aromatics in: minced garlic, ginger, sliced peppers, stir-fry 2 min over high heat.",
+    "Black bean sauce, splash of Shaoxing, splash of soy, splash of water. Bubble 1 min until glossy.",
+    "Chicken back in, toss to coat. Sliced spring onions on top. Rice alongside."
+  ],
+  "Crispy Peanut Chicken":[
+    "Rice on.",
+    "Cube the chicken, toss in cornflour plus salt. Shallow fry in oil for 4 min a side until crisp and cooked. Drain.",
+    "Sauce: 2 tbsp peanut butter + 2 tbsp soy + 1 tbsp honey + 1 tbsp rice vinegar + 1 tbsp sriracha + minced garlic + grated ginger + 3 tbsp water. Whisk in a small pan over low heat until smooth.",
+    "Toss the hot chicken in the sauce until coated all over.",
+    "Plate over rice. Sliced spring onions, sesame seeds scattered on top."
+  ],
+  "Thai Green Curry":[
+    "Rice on.",
+    "Cube the chicken. Spoon 4 tbsp of the thick coconut cream from the top of the tin into a wok over medium-high heat, cook until it splits and the oil shimmers.",
+    "Curry paste in, fry 2 min until fragrant — be ready for the smell. Lime leaves torn in.",
+    "Chicken in, coat in paste, 3 min.",
+    "Rest of the coconut milk, fish sauce, brown sugar. Diced aubergine, halved green beans, drained bamboo shoots. Simmer 12 min.",
+    "Squeeze of lime, torn basil. Taste and balance: more fish sauce for salt, sugar for sweet, lime for sour. Rice underneath."
+  ],
+  "Pork Belly Ramen":[
+    "Pork: rub belly with salt, sear skin-side down in a heavy pan until crisp, then into a 160°C oven for 90 min. Rest, slice.",
+    "Eggs: lower into boiling water for 6 min 30 sec, ice bath, peel. Optionally marinate in 2 tbsp soy + 2 tbsp mirin + 2 tbsp water for an hour for soy eggs.",
+    "Broth: gentle pan, smashed garlic and sliced ginger in sesame oil for 1 min. Stock, 2 tbsp miso, 2 tbsp soy, 1 tbsp mirin. Simmer 10 min, taste.",
+    "Noodles: cook in separate water to packet time, drain.",
+    "Pak choi: halved, blanched 1 min in the broth.",
+    "Bowl up: noodles, ladle of broth, sliced pork, halved egg, pak choi, sliced spring onions, nori tucked at the side."
+  ],
+  "Honey Chilli Beef":[
+    "Rice on.",
+    "Toss beef strips in cornflour plus salt and pepper. Shallow fry in batches in hot oil for 2 min until crisp at the edges. Drain.",
+    "Sauce: 3 tbsp honey + 3 tbsp soy + 3 tbsp sweet chilli + 1 tbsp rice vinegar + 4 tbsp water.",
+    "Tip out most of the oil. Garlic, ginger, sliced red chillies, stir-fry 30 sec.",
+    "Sauce in, bubble until syrupy, 1 min.",
+    "Beef back in, toss hard to coat. Sliced spring onions on top. Rice underneath."
+  ],
+  "Mongolian Lamb":[
+    "Rice on.",
+    "Slice the lamb thinly across the grain, toss in cornflour plus salt.",
+    "Sauce: 3 tbsp hoisin + 1 tbsp light soy + 1 tbsp dark soy + 1 tbsp brown sugar + 3 tbsp water.",
+    "Hot wok with oil, sear the lamb in batches for 2 min — keep it pink in the middle.",
+    "Final batch: add minced garlic and ginger for 30 sec. Sauce in, bubble until glossy.",
+    "All the lamb back in, toss. Sliced spring onions tumbled through. Rice underneath."
+  ],
+  "Chilli Crisp Noodles":[
+    "Boil the egg noodles per packet, drain, rinse briefly with cold water to stop them sticking.",
+    "In each serving bowl: 1 tbsp chilli crisp + 1 tbsp soy + 1 tsp black vinegar + 1 tsp sesame oil + a tiny pinch of sugar.",
+    "Eggs: fry one per person — crispy edges, runny yolk.",
+    "Pak choi halved, quick stir-fry in oil with sliced garlic for 2 min until charred.",
+    "Hot noodles into the sauce bowls, toss hard to coat. Top with egg, pak choi, sliced spring onions."
+  ],
+  "Pan Steamed Milk Buns (egg & sausage)":[
+    "Sausages or sliced spam: pan-fry in a little oil until browned both sides.",
+    "Eggs: scramble gently in butter, take off heat while still loose — they keep cooking. Or fry sunny-side up, your call.",
+    "Buns: flat-side down in a hot dry pan with 2 tbsp water, lid on, 2–3 min until heated and steamed. Split.",
+    "Inside each bun: smear of kewpie mayo, drizzle of soy, scrambled egg, sausage, sliced spring onions."
+  ],
+  "Beef Birria Tacos":[
+    "Toast guajillo and ancho chillies in a dry pan for 30 sec a side until aromatic. Soak in hot water 15 min. Drain — keep the soaking liquid.",
+    "Blend the chillies with onion, garlic, cumin, oregano, salt and a splash of soaking liquid until smooth.",
+    "Cube the beef. In a heavy pot: brown the beef in oil, add the chilli paste, beef stock, bay and cinnamon stick. Simmer covered 2.5–3 hours until shreddingly tender.",
+    "Shred the beef. Skim the bright red consommé from the top.",
+    "Tacos: dip a tortilla in the consommé, lay in a hot dry pan, top with shredded beef and grated cheese, fold over. Crisp 2 min a side.",
+    "Serve with little bowls of consommé for dipping. Lime, diced onion and chopped coriander on the side."
+  ],
+  "Chicken Enchiladas":[
+    "Poach the chicken in seasoned water for 15 min, shred. Leftover roast chicken works too.",
+    "Mix the shredded chicken with diced onion, crushed garlic, cumin, smoked paprika, chopped jalapenos, half the cheese and a few spoons of sauce.",
+    "Roll the filling into tortillas, line them up seam-side down in a baking dish.",
+    "Pour over the remaining sauce. Top with the rest of the cheese.",
+    "Bake at 200°C / 400°F for 20 min until bubbling and golden.",
+    "Sour cream and fresh coriander to finish."
+  ],
+  "Tostadas with Refried Beans & Chorizo":[
+    "Slice the chorizo into coins, dry-fry until crisp at the edges and the oil runs red. Drain on kitchen paper.",
+    "Warm the refried beans in a pan with a splash of water until spreadable.",
+    "Salsa: diced tomato + finely diced red onion + chopped coriander + lime juice + salt.",
+    "Smashed avocado: mash with lime juice and salt.",
+    "Build each tostada: refried beans, chorizo, salsa, avocado, grated cheddar, dollop of sour cream."
+  ],
+  "Tacos al Pastor":[
+    "Marinade: toast and soak chillies (15 min in hot water). Blend with achiote (if using), a chunk of pineapple, white vinegar, cumin and salt.",
+    "Slice the pork shoulder thin. Coat in the marinade, 4 hours minimum in the fridge.",
+    "Cook: sear in batches in a screaming hot pan, charred at the edges, cooked through. Slice small.",
+    "Diced pineapple: hot pan, char 2 min until golden.",
+    "Warm corn tortillas. Top with pork, pineapple, diced red onion, chopped coriander and a squeeze of lime."
+  ],
+  "Green Chilli Chicken":[
+    "Brown the seasoned thighs skin-side down in a casserole, both sides. Remove.",
+    "Roughly chop tomatillos, green chillies, half the onion and garlic. Char them in the chicken fat for 5 min.",
+    "Blend with coriander stalks, cumin, lime juice and a splash of stock until salsa-smooth.",
+    "Salsa back in the pan, simmer 5 min until darker green and thicker.",
+    "Chicken back in skin up, rest of the stock, lid ajar, 35 min until tender.",
+    "Coriander leaves on top, lime wedges on the side. Rice or warm tortillas alongside."
+  ],
+  "Carbonara":[
+    "Spaghetti on in well-salted boiling water.",
+    "Cut guanciale or pancetta into lardons. Dry pan, slow medium heat, render until crisp and the fat is golden, 6–8 min. Off heat.",
+    "Bowl: 3 yolks + 1 whole egg + huge handful of grated pecorino + smaller handful of parmesan + LOTS of cracked black pepper. Whisk to a paste.",
+    "Drained pasta straight into the pan with the guanciale, off the heat. Splash of pasta water.",
+    "Pour in the egg mix, toss continuously. The pasta heat cooks it into a silky sauce — if it scrambles you were too hot.",
+    "More pecorino and pepper on top."
+  ],
+  "Mac & Cheese (fancy)":[
+    "Macaroni: cook 2 min short of packet time, drain.",
+    "Béchamel: melt butter, whisk in flour, cook 1 min. Slowly whisk in warm milk until smooth and coating. 5 min low heat.",
+    "Off heat: most of the cheddar plus gruyere plus half the parmesan plus mustard plus grated nutmeg plus aggressive seasoning. Whisk until glossy.",
+    "Stir in the pasta. Tip into a baking dish.",
+    "Top with the remaining cheeses plus panko mixed with melted butter.",
+    "Bake at 200°C / 400°F for 20–25 min until the top is crisp and the sides bubble."
+  ],
+  "Bacon Cheeseburgers":[
+    "Bacon: dry-fry until properly crisp. Drain.",
+    "Form mince into 4 loose balls — don't pack them tight. Season the outside hard with salt and pepper just before they hit the heat.",
+    "Hot pan or grill, oil. Smash each ball flat with a spatula on a tray, sear 2 min until a deep brown crust forms, flip. Cheese on top, 1 min, lid on briefly to melt.",
+    "Toast brioche buns cut-side down in the burger fat.",
+    "Burger sauce: 2 tbsp mayo + 1 tbsp ketchup + 1 tsp mustard + chopped pickles.",
+    "Build: bun, sauce, lettuce, tomato, patty+cheese, bacon, red onion, pickles, top bun."
+  ],
+  "Hot Dogs":[
+    "Frankfurters: gentle simmer in water for 6 min, or grill until lightly charred.",
+    "Caramelised onions: slice thin, sweat slowly in oil with a pinch of salt for 20 min until jammy and sweet.",
+    "Toast the buns inside on a dry pan or under the grill.",
+    "Bun, frankfurter, slice of cheese (residual heat softens it), caramelised onions, ketchup, mustard, crispy onions on top, jalapenos if you like a kick."
+  ],
+  "Doner Kebab":[
+    "Blitz the mince in a food processor with onion, garlic, cumin, oregano, paprika, salt and pepper. Process until pasty and sticky — that's the texture trick.",
+    "Mould into a tight loaf on a tray. Oven at 180°C for 45 min until firm and cooked through. Rest 10 min then slice very thinly.",
+    "Garlic sauce: Greek yoghurt + grated garlic + lemon juice + salt.",
+    "Yoghurt-mint sauce: Greek yoghurt + diced cucumber + chopped mint + salt.",
+    "Warm flatbreads. Pile with shredded lettuce, sliced tomato, red onion, doner slices, both sauces, chilli sauce."
+  ],
+  "Turkey Mince Chilli":[
+    "Diced onion and red pepper softened in oil for 8 min. Garlic for the last minute.",
+    "Turkey mince in, break it up and brown all over.",
+    "Spices: chilli powder, cumin, smoked paprika, oregano, cook 1 min until fragrant.",
+    "Tinned tomatoes, drained kidney and black beans, splash of water if dry. Simmer 30 min, partially covered.",
+    "Last minute: grated square of dark chocolate. Stir until melted — depth, not sweetness.",
+    "Rice or warm wraps. Sour cream and grated cheese if you have them."
+  ],
+  "Lamb Koftas with Flatbread & Tzatziki":[
+    "Mix the lamb with grated red onion, crushed garlic, chopped parsley and mint, cumin, ground coriander seeds, paprika and salt. Knead until tacky.",
+    "Shape onto skewers in sausage shapes. Rest 20 min — helps them hold together.",
+    "Tzatziki: grated cucumber (squeeze the water out hard), Greek yoghurt, crushed garlic, lemon juice, salt, chopped mint.",
+    "Salad: diced tomato + thinly sliced red onion + parsley + lemon + salt.",
+    "Grill or griddle the koftas, charred all over and cooked through, about 8 min total.",
+    "Warm flatbreads. Layer salad, koftas, tzatziki. Squeeze of lemon."
+  ],
+  "Crispy Pork Belly":[
+    "Dry the skin overnight in the fridge, uncovered. This is the secret to crackling.",
+    "Score the skin in fine parallel lines, only into the skin, never the meat. Rub flaky salt deep into the scores.",
+    "Underside: rub with Chinese five spice, white pepper and a little salt.",
+    "Skin-side up on a rack at 220°C / 425°F for 30 min until the skin blisters. Drop to 160°C / 325°F for another 1h15m.",
+    "Rest 15 min then slice with a serrated knife.",
+    "Roast potatoes or rice underneath. Quick-fried pak choi alongside. Apple sauce on the side."
+  ],
+  "One-pan Lemon Herb Salmon":[
+    "Halve the new potatoes, toss in oil and salt, onto a baking tray at 200°C / 400°F for 20 min, shake once.",
+    "Add asparagus + halved cherry tomatoes + smashed garlic cloves + lemon slices. Toss in the tray.",
+    "Nestle the salmon fillets on top, skin-side down. Dot with butter, lemon zest, salt.",
+    "Back in the oven for 12 min until the salmon flakes and the asparagus is just tender.",
+    "Off heat: chopped dill and parsley showered over. Lemon wedges on the side."
+  ],
+  "Shakshuka":[
+    "Diced onion and sliced red peppers in oil in a wide pan with a lid — soften for 10 min.",
+    "Crushed garlic, cumin, smoked paprika, optional harissa, cook 1 min.",
+    "Tinned tomatoes, salt. Simmer 12 min until thick — should hold the shape of a spoon swipe.",
+    "Make wells with a spoon, crack 6 eggs in. Crumble feta around the eggs.",
+    "Lid on, gentle heat, 6–8 min until whites are set but yolks still wobble.",
+    "Fresh coriander showered over. Crusty bread or flatbread for dipping."
+  ]
+};
+
 var DAYS=["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
 var FULLDAYS=["Sunday","Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"];
 var CATS=[
@@ -668,14 +1063,14 @@ function renderTonight(){
   } else if(meal.done){
     html+='<div class="tonight-hero"><div class="tonight-inner">';
     html+='<div class="tonight-day">'+FULLDAYS[idx]+' · already done ✓</div>';
-    html+='<div class="tonight-meal">'+meal.name+'</div>';
+    html+='<div class="tonight-meal clickable" onclick="openRecipeByName(\''+escQ(meal.name)+'\')">'+meal.name+'</div>';
     html+='<span class="tonight-tag">'+meal.protein+'</span>';
     html+='</div></div>';
     html+=renderUpNext(idx);
   } else {
     html+='<div class="tonight-hero"><div class="tonight-inner">';
     html+='<div class="tonight-day">'+FULLDAYS[idx]+' · cooking tonight</div>';
-    html+='<div class="tonight-meal">'+meal.name+'</div>';
+    html+='<div class="tonight-meal clickable" onclick="openRecipeByName(\''+escQ(meal.name)+'\')">'+meal.name+'</div>';
     html+='<span class="tonight-tag">'+meal.protein+'</span>';
     html+='<div class="tonight-actions">';
     html+='<button class="tonight-btn primary" onclick="markDone('+idx+')">Mark done ✓</button>';
@@ -709,7 +1104,7 @@ function renderUpNext(fromIdx){
   if(!upcoming.length)return '';
   var html='<div class="up-next"><div class="up-next-title">Coming up</div>';
   upcoming.forEach(function(u){
-    html+='<div class="up-next-row"><span class="up-next-day">'+DAYS[u.idx]+'</span><span class="up-next-name">'+u.meal.name+'</span><span class="tag-sm t-'+u.meal.protein+'">'+u.meal.protein+'</span></div>';
+    html+='<div class="up-next-row" onclick="openRecipeByName(\''+escQ(u.meal.name)+'\')" style="cursor:pointer;"><span class="up-next-day">'+DAYS[u.idx]+'</span><span class="up-next-name">'+u.meal.name+'</span><span class="tag-sm t-'+u.meal.protein+'">'+u.meal.protein+'</span></div>';
   });
   html+='</div>';
   return html;
@@ -727,7 +1122,7 @@ function renderPlan(){
     html+='<div class="cluster-label">Done this week ✓</div>';
     S.week.forEach(function(m,i){
       if(!m||!m.done||m.skipped)return;
-      html+='<div class="day-card done"><span class="day-label">'+DAYS[i]+'</span><span class="day-meal">'+m.name+'</span><span class="done-badge">done</span></div>';
+      html+='<div class="day-card done"><span class="day-label">'+DAYS[i]+'</span><span class="day-meal clickable" onclick="openRecipeByName(\''+escQ(m.name)+'\')">'+m.name+'</span><span class="done-badge">done</span></div>';
     });
   }
   if(anyTodo){
@@ -735,7 +1130,7 @@ function renderPlan(){
     S.week.forEach(function(m,i){
       if(!m||m.done||m.skipped)return;
       var isToday=i===todayIdx;
-      html+='<div class="day-card'+(isToday?' today':'')+(m.pinned?' pinned':'')+'"><span class="day-label">'+DAYS[i]+'</span><span class="day-meal">'+m.name+'</span>';
+      html+='<div class="day-card'+(isToday?' today':'')+(m.pinned?' pinned':'')+'"><span class="day-label">'+DAYS[i]+'</span><span class="day-meal clickable" onclick="openRecipeByName(\''+escQ(m.name)+'\')">'+m.name+'</span>';
       if(isToday)html+='<span class="today-badge">today</span>';
       else if(m.pinned)html+='<span class="pin-badge" title="Stays put on New week">📌</span>';
       else html+='<span class="cluster-tag">'+m.protein+'</span>';
@@ -980,6 +1375,11 @@ function resetShop(){
 }
 
 function generateWeek(){
+  // Confirm if there's an existing week — protects against accidental taps.
+  var hasCurrentWeek=S.week&&S.week.length&&S.week.some(function(m){return m&&m.name;});
+  if(hasCurrentWeek){
+    if(!confirm("Replace this week's plan with a new one? Shopping ticks will reset. Pinned meals will stay."))return;
+  }
   // Preserve pinned slots — they keep their day index across regenerations.
   var pinnedAt={};
   S.week.forEach(function(m,i){if(m&&m.pinned)pinnedAt[i]=m;});
@@ -1063,6 +1463,46 @@ function doSwap(name,protein){
 function closeSwap(e){if(e.target===document.getElementById("swapOverlay"))closeSwapDirect();}
 function closeSwapDirect(){document.getElementById("swapOverlay").classList.remove("open");}
 
+function openRecipeByName(name){
+  var meal=MEALS.find(function(x){return x.name===name;});
+  if(!meal)return;
+  var html='';
+  // Ingredients grouped by aisle category, in the same order as the shopping list.
+  var byCat={};
+  meal.ing.forEach(function(i){var c=i.cat||'pantry';if(!byCat[c])byCat[c]=[];byCat[c].push(i);});
+  html+='<div class="recipe-section-title">Ingredients</div>';
+  CATS.forEach(function(cat){
+    var items=byCat[cat.key];
+    if(!items||!items.length)return;
+    html+='<div class="recipe-ing-group"><div class="recipe-ing-cat">'+cat.label+'</div><ul class="recipe-ing-list">';
+    items.forEach(function(i){
+      var note=i.note?' <span style="color:var(--muted);font-size:11px;">('+i.note+')</span>':'';
+      html+='<li><span>'+i.name+note+'</span><span class="ing-qty">'+i.qty+'</span></li>';
+    });
+    html+='</ul></div>';
+  });
+  html+='<div class="recipe-section-title">Method</div>';
+  var steps=(typeof METHODS!=='undefined')?METHODS[name]:null;
+  if(steps&&steps.length){
+    html+='<ol class="recipe-method-list">';
+    steps.forEach(function(s){html+='<li>'+s+'</li>';});
+    html+='</ol>';
+  } else {
+    html+='<div class="recipe-method-empty">No method recorded for this one yet. Ping me to add one — I\'ll match it to the ingredients above.</div>';
+  }
+  document.getElementById("recipeTitle").textContent=meal.name;
+  document.getElementById("recipeSubtitle").textContent=meal.cat+' · '+meal.protein;
+  document.getElementById("recipeBody").innerHTML=html;
+  document.getElementById("recipeBody").scrollTop=0;
+  var ov=document.getElementById("recipeOverlay");
+  // re-trigger entry animation in case it's reopened in the same frame
+  var modal=ov.querySelector('.recipe-modal');
+  modal.style.animation='none';void modal.offsetWidth;modal.style.animation='';
+  ov.classList.add("open","recipe-open");
+}
+function closeRecipe(e){if(e.target===document.getElementById("recipeOverlay"))closeRecipeDirect();}
+function closeRecipeDirect(){document.getElementById("recipeOverlay").classList.remove("open","recipe-open");}
+
 function renderMeals(){
   var cutoff=Date.now()-(21*24*60*60*1000),html='';
   SECS.forEach(function(sec){
@@ -1071,7 +1511,7 @@ function renderMeals(){
     html+='<div class="meal-section"><div class="meal-section-header">'+sec.label+'</div><div class="meal-section-body">';
     meals.forEach(function(m){
       var used=S.recent[m.name]&&S.recent[m.name]>=cutoff;
-      html+='<div class="meal-row'+(used?' used':'')+'"><span class="meal-row-name">'+m.name+'</span>';
+      html+='<div class="meal-row'+(used?' used':'')+'" onclick="openRecipeByName(\''+escQ(m.name)+'\')" style="cursor:pointer;"><span class="meal-row-name">'+m.name+'</span>';
       if(used)html+='<span class="modal-item-badge">recent</span>';
       html+='<span class="tag-sm t-'+m.protein+'">'+m.protein+'</span></div>';
     });
@@ -1113,6 +1553,9 @@ window.openSwap=openSwap;
 window.closeSwap=closeSwap;
 window.closeSwapDirect=closeSwapDirect;
 window.doSwap=doSwap;
+window.openRecipeByName=openRecipeByName;
+window.closeRecipe=closeRecipe;
+window.closeRecipeDirect=closeRecipeDirect;
 window.toggleShop=toggleShop;
 window.resetShop=resetShop;
 window.addExtra=addExtra;
