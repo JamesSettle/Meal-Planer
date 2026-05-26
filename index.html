@@ -3,7 +3,8 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>Meal Planner</title>
+<title>Hearth</title>
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><rect width='64' height='64' rx='14' fill='%232D5A27'/><path d='M32 14c4 6 10 10 10 18a10 10 0 0 1-20 0c0-3 1.5-5 3-7 1 2 2 3 4 3 0-5 0-9 3-14z' fill='%23F0C84A'/></svg>">
 <style>
 @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=DM+Serif+Display&display=swap');
 *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;}
@@ -13,7 +14,64 @@
   --recent-bg:#FFF8E8;--recent-border:#F0C84A;--done-bg:#F0F7EE;
   --tonight-bg:#1F3F1B;--tonight-text:#F7F5F0;
 }
-body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;padding-bottom:100px;-webkit-font-smoothing:antialiased;}
+body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;padding-bottom:120px;-webkit-font-smoothing:antialiased;}
+
+/* View switching — only the active view is in the document flow. */
+.view{display:none;}
+.view.active{display:block;}
+
+/* Home view — Hearth landing page with module cards. */
+.home-header{background:var(--accent);padding:28px 18px 22px;}
+.home-brand{display:flex;align-items:center;gap:10px;}
+.home-brand-mark{width:30px;height:30px;border-radius:8px;background:#F0C84A;display:flex;align-items:center;justify-content:center;flex-shrink:0;}
+.home-brand-mark svg{width:18px;height:18px;}
+.home-brand h1{font-family:'DM Serif Display',serif;font-size:30px;color:#fff;font-weight:400;letter-spacing:-0.02em;line-height:1;}
+.home-tagline{font-size:12px;color:rgba(255,255,255,0.65);margin-top:8px;letter-spacing:0.02em;}
+.home-greeting{font-size:13px;color:rgba(255,255,255,0.75);margin-top:16px;line-height:1.5;}
+
+.home-grid{padding:18px 14px 0;}
+.module-section-label{font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:0.1em;padding:8px 4px 12px;}
+.module-card{background:var(--card);border:1px solid var(--border);border-radius:16px;padding:22px 20px;margin-bottom:12px;display:block;text-decoration:none;color:inherit;position:relative;overflow:hidden;cursor:pointer;-webkit-tap-highlight-color:transparent;transition:transform 0.15s;}
+.module-card:active{transform:scale(0.985);}
+.module-card.featured{background:var(--tonight-bg);color:var(--tonight-text);border-color:transparent;}
+.module-card.featured::before{content:"";position:absolute;inset:0;background:radial-gradient(circle at 85% 15%,rgba(240,200,74,0.18),transparent 55%);pointer-events:none;}
+.module-card.coming-soon{opacity:0.55;cursor:default;pointer-events:none;}
+.module-card-row{display:flex;align-items:flex-start;gap:14px;position:relative;}
+.module-icon{width:42px;height:42px;border-radius:11px;background:rgba(247,245,240,0.12);display:flex;align-items:center;justify-content:center;flex-shrink:0;}
+.module-card:not(.featured) .module-icon{background:var(--pill-bg);}
+.module-icon svg{width:22px;height:22px;}
+.module-body{flex:1;min-width:0;}
+.module-title{font-family:'DM Serif Display',serif;font-size:20px;font-weight:400;letter-spacing:-0.01em;margin-bottom:4px;line-height:1.15;}
+.module-subtitle{font-size:12px;opacity:0.7;line-height:1.45;}
+.module-card.featured .module-subtitle{opacity:0.65;}
+.module-preview{margin-top:14px;padding-top:14px;border-top:1px solid rgba(247,245,240,0.12);font-size:13px;color:rgba(247,245,240,0.85);}
+.module-card:not(.featured) .module-preview{border-top-color:var(--border);color:var(--text);}
+.module-preview .preview-label{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;opacity:0.55;margin-bottom:4px;display:block;}
+.module-soon-badge{position:absolute;top:18px;right:18px;font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;padding:3px 9px;border-radius:20px;background:#F0C84A;color:var(--accent-dark);}
+
+/* Settings view */
+.settings-header{background:var(--accent);padding:20px 18px 16px;}
+.settings-header h1{font-family:'DM Serif Display',serif;font-size:22px;color:#fff;font-weight:400;letter-spacing:-0.01em;}
+.settings-header p{font-size:11px;color:rgba(255,255,255,0.6);margin-top:2px;}
+.settings-body{padding:18px 16px 0;}
+.settings-section{background:var(--card);border:1px solid var(--border);border-radius:12px;margin-bottom:14px;overflow:hidden;}
+.settings-row{padding:14px 16px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;gap:14px;cursor:pointer;-webkit-tap-highlight-color:transparent;}
+.settings-row:last-child{border-bottom:none;}
+.settings-row:active{background:var(--bg);}
+.settings-row.static{cursor:default;}
+.settings-row.static:active{background:transparent;}
+.settings-label{font-size:14px;font-weight:500;}
+.settings-value{font-size:13px;color:var(--muted);}
+.settings-row.danger .settings-label{color:#B33;}
+.settings-about{padding:14px 16px;font-size:12px;color:var(--muted);line-height:1.55;}
+
+/* Floating bottom nav — global across all views. */
+.bottom-nav{position:fixed;bottom:14px;left:14px;right:14px;background:var(--card);border:1px solid var(--border);border-radius:18px;box-shadow:0 8px 28px rgba(0,0,0,0.10);padding:7px;display:flex;gap:6px;z-index:40;-webkit-backdrop-filter:saturate(180%);backdrop-filter:saturate(180%);}
+.bn-btn{flex:1;background:none;border:none;padding:9px 4px 7px;border-radius:12px;color:var(--muted);font-family:'DM Sans',sans-serif;font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:0.08em;cursor:pointer;-webkit-appearance:none;display:flex;flex-direction:column;align-items:center;gap:2px;}
+.bn-btn:active{background:var(--bg);}
+.bn-btn.active{background:var(--accent);color:#fff;}
+.bn-btn svg{width:20px;height:20px;}
+.bn-btn .bn-label{font-size:10px;}
 
 header{background:var(--accent);padding:20px 18px 14px;position:sticky;top:0;z-index:20;}
 header h1{font-family:'DM Serif Display',serif;font-size:22px;color:#fff;font-weight:400;letter-spacing:-0.01em;}
@@ -175,7 +233,7 @@ header p{font-size:11px;color:rgba(255,255,255,0.6);margin-top:1px;}
 
 <div class="lock-screen" id="lockScreen">
   <div class="lock-card">
-    <h2 class="lock-title">Meal Planner</h2>
+    <h2 class="lock-title">Hearth</h2>
     <p class="lock-sub">Hint: Boss</p>
     <input type="password" class="lock-input" id="lockInput" autocomplete="off" placeholder="Password">
     <div class="lock-error" id="lockError"></div>
@@ -183,26 +241,99 @@ header p{font-size:11px;color:rgba(255,255,255,0.6);margin-top:1px;}
   </div>
 </div>
 
-<header>
-  <h1>Meal Planner</h1>
-  <p>48 dishes · weekly plan · auto shopping list</p>
-  <div class="header-row">
-    <span class="week-label" id="weekLabel">Week 1</span>
-    <button class="gen-btn" onclick="generateWeek()">New week ↻</button>
-  </div>
-</header>
+<!-- Home view: dashboard of modules under the Hearth umbrella. -->
+<div class="view" id="view-home">
+  <header class="home-header">
+    <div class="home-brand">
+      <div class="home-brand-mark">
+        <svg viewBox="0 0 24 24" fill="none"><path d="M12 3c1.5 2.5 4 4 4 7a4 4 0 0 1-8 0c0-1.2.6-2 1.4-2.8.4.8.9 1.3 1.6 1.3 0-2 0-3.5 1-5.5z" fill="#2D5A27"/></svg>
+      </div>
+      <h1>Hearth</h1>
+    </div>
+    <p class="home-tagline">Home, sorted.</p>
+    <p class="home-greeting" id="homeGreeting">Pick a tool to get going.</p>
+  </header>
 
-<div class="tabs">
-  <div class="tab active" onclick="switchTab('tonight')">Tonight</div>
-  <div class="tab" onclick="switchTab('plan')">Week</div>
-  <div class="tab" onclick="switchTab('shop')">Shopping</div>
-  <div class="tab" onclick="switchTab('meals')">All</div>
+  <div class="home-grid">
+    <div class="module-section-label">Your tools</div>
+    <div class="module-card featured" onclick="setView('meal-planner')">
+      <div class="module-card-row">
+        <div class="module-icon"><svg viewBox="0 0 24 24" fill="none" stroke="#F7F5F0" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11h18M5 11V7a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v4M5 11l1 8a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2l1-8"/><path d="M9 14v3M15 14v3"/></svg></div>
+        <div class="module-body">
+          <div class="module-title">Meal Planner</div>
+          <div class="module-subtitle">Weekly plan, shopping list, recipe cards.</div>
+        </div>
+      </div>
+      <div class="module-preview" id="mealPreview"><span class="preview-label">Tonight</span><span id="mealPreviewText">—</span></div>
+    </div>
+
+    <div class="module-card coming-soon">
+      <span class="module-soon-badge">Soon</span>
+      <div class="module-card-row">
+        <div class="module-icon"><svg viewBox="0 0 24 24" fill="none" stroke="#2D5A27" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M3 21h18M5 21V10l7-5 7 5v11M9 21v-6h6v6"/></svg></div>
+        <div class="module-body">
+          <div class="module-title">Cleaning Rota</div>
+          <div class="module-subtitle">Who's doing what, when. Decluttering plan.</div>
+        </div>
+      </div>
+    </div>
+  </div>
 </div>
 
-<div class="panel active" id="panel-tonight"><div id="tonightContent"></div></div>
-<div class="panel" id="panel-plan"><div id="planContent"></div></div>
-<div class="panel" id="panel-shop"><div id="shopContent"></div></div>
-<div class="panel" id="panel-meals"><div id="mealsContent"></div></div>
+<!-- Meal Planner view: the existing 4-tab experience. -->
+<div class="view" id="view-meal-planner">
+  <header>
+    <h1>Meal Planner</h1>
+    <p>weekly plan · auto shopping list</p>
+    <div class="header-row">
+      <span class="week-label" id="weekLabel">Week 1</span>
+      <button class="gen-btn" onclick="generateWeek()">New week ↻</button>
+    </div>
+  </header>
+
+  <div class="tabs">
+    <div class="tab active" onclick="switchTab('tonight')">Tonight</div>
+    <div class="tab" onclick="switchTab('plan')">Week</div>
+    <div class="tab" onclick="switchTab('shop')">Shopping</div>
+    <div class="tab" onclick="switchTab('meals')">All</div>
+  </div>
+
+  <div class="panel active" id="panel-tonight"><div id="tonightContent"></div></div>
+  <div class="panel" id="panel-plan"><div id="planContent"></div></div>
+  <div class="panel" id="panel-shop"><div id="shopContent"></div></div>
+  <div class="panel" id="panel-meals"><div id="mealsContent"></div></div>
+</div>
+
+<!-- Settings view -->
+<div class="view" id="view-settings">
+  <header class="settings-header">
+    <h1>Settings</h1>
+    <p>Hearth · for you & yours</p>
+  </header>
+  <div class="settings-body">
+    <div class="settings-section">
+      <div class="settings-about"><strong>Hearth</strong> — a small toolbox of home things. Currently: Meal Planner. Coming: Cleaning Rota.</div>
+    </div>
+    <div class="settings-section">
+      <div class="settings-row" onclick="lockApp()">
+        <span class="settings-label">Lock this device</span>
+        <span class="settings-value">Re-enter password</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Floating bottom nav -->
+<nav class="bottom-nav" id="bottomNav">
+  <button class="bn-btn" data-view="home" onclick="setView('home')">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11l9-8 9 8M5 9.5V21h14V9.5"/></svg>
+    <span class="bn-label">Home</span>
+  </button>
+  <button class="bn-btn" data-view="settings" onclick="setView('settings')">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3h0a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8v0a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg>
+    <span class="bn-label">Settings</span>
+  </button>
+</nav>
 
 <div class="overlay" id="swapOverlay" onclick="closeSwap(event)">
   <div class="modal">
@@ -1528,6 +1659,59 @@ function switchTab(id){
   window.scrollTo(0,0);
 }
 
+// ---- Hearth top-level view switching ----
+var VIEW_KEY="hearth_view";
+function setView(view){
+  document.querySelectorAll('.view').forEach(function(v){v.classList.remove('active');});
+  var target=document.getElementById('view-'+view);
+  if(target)target.classList.add('active');
+  else{view='home';document.getElementById('view-home').classList.add('active');}
+  document.querySelectorAll('.bn-btn').forEach(function(b){
+    b.classList.toggle('active',b.dataset.view===view);
+  });
+  try{localStorage.setItem(VIEW_KEY,view);}catch(e){}
+  if(view==='home')renderHome();
+  window.scrollTo(0,0);
+}
+
+function lockApp(){
+  if(!confirm('Lock this device? You\'ll need the password to get back in.'))return;
+  try{localStorage.removeItem(UNLOCK_KEY);}catch(e){}
+  location.reload();
+}
+
+// Home dashboard preview: shows what's for dinner so the home screen isn't dead.
+function renderHome(){
+  if(!firstSnapshot){
+    document.getElementById('homeGreeting').textContent='Connecting…';
+    document.getElementById('mealPreviewText').textContent='—';
+    return;
+  }
+  var anyWeek=S.week&&S.week.length&&S.week.some(function(m){return m&&m.name;});
+  var greeting=document.getElementById('homeGreeting');
+  var preview=document.getElementById('mealPreviewText');
+  if(!anyWeek){
+    greeting.textContent='No week planned yet. Open the meal planner to generate one.';
+    preview.textContent='Nothing planned — tap to generate a week.';
+    return;
+  }
+  var idx=getTodayIndex();
+  var meal=S.week[idx];
+  greeting.textContent='Welcome back. Here\'s what\'s on.';
+  if(!meal||meal.skipped||!meal.name){
+    preview.textContent=FULLDAYS[idx]+' — nothing planned. Up next:';
+    // find next planned meal
+    for(var i=idx+1;i<S.week.length;i++){
+      var m=S.week[i];
+      if(m&&!m.skipped&&m.name){preview.textContent=FULLDAYS[idx]+' is free · '+DAYS[i]+': '+m.name;break;}
+    }
+  } else if(meal.done){
+    preview.textContent=meal.name+' (already cooked ✓)';
+  } else {
+    preview.textContent=meal.name;
+  }
+}
+
 function shuffle(a){for(var i=a.length-1;i>0;i--){var j=Math.floor(Math.random()*(i+1));var t=a[i];a[i]=a[j];a[j]=t;}return a;}
 function escQ(s){return s.replace(/'/g,"\\'");}
 
@@ -1538,8 +1722,8 @@ function renderConnecting(){
   document.getElementById("mealsContent").innerHTML='';
 }
 function renderAll(){
-  if(!firstSnapshot){renderConnecting();return;}
-  renderTonight();renderPlan();renderShop();renderMeals();
+  if(!firstSnapshot){renderConnecting();renderHome();return;}
+  renderTonight();renderPlan();renderShop();renderMeals();renderHome();
 }
 
 // expose handlers for inline onclick attributes (module scope is not global)
@@ -1561,6 +1745,8 @@ window.resetShop=resetShop;
 window.addExtra=addExtra;
 window.toggleExtra=toggleExtra;
 window.removeExtra=removeExtra;
+window.setView=setView;
+window.lockApp=lockApp;
 
 // ---- password gate ----
 var APP_PASSWORD="HoggyBoos";
@@ -1662,6 +1848,10 @@ window.__lockApp=function(){
 
 function bootApp(){
   renderConnecting();
+  // Restore the view they were on last time so a returning user lands where they left off.
+  var lastView='home';
+  try{var v=localStorage.getItem(VIEW_KEY);if(v)lastView=v;}catch(e){}
+  setView(lastView);
   onAuthStateChanged(fbAuth,async function(user){
     if(user){attachListener();return;}
     try{await signInAnonymously(fbAuth);}
